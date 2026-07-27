@@ -1,0 +1,11 @@
+# Ignore local Python Virtual Environment
+ml/venv/
+__pycache__/
+*.pyc
+
+# Ignore model binaries and heavy checkpoints
+*.pth
+
+# Ignore heavy raw and processed datasets
+data/raw/
+data/processed/
