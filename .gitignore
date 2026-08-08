@@ -9,3 +9,9 @@ __pycache__/
 # Ignore heavy raw and processed datasets
 data/raw/
 data/processed/
+
+
+.env
+*.pth
+__pycache__/
+venv/

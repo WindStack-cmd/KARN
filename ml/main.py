@@ -3,12 +3,21 @@ import torch.nn as nn
 import numpy as np
 import requests
 import json
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 import pandas as pd
 from datetime import datetime
+import os
+from dotenv import load_dotenv
+from supabase import create_client, Client
+
+# ── Environment ───────────────────────────────────────────────────────────────
+load_dotenv()
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ── App Setup ─────────────────────────────────────────────────────────────────
 app = FastAPI(
@@ -17,7 +26,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS — allows React frontend to call this API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -49,12 +57,14 @@ class FlareRecurrentLSTM(nn.Module):
         out, _ = self.lstm(x)
         return self.classifier(out[:, -1, :])
 
-# ── Load Model Once at Startup ────────────────────────────────────────────────
+# ── Load Model ────────────────────────────────────────────────────────────────
 print("Loading KARN LSTM model...")
 model = FlareRecurrentLSTM()
-model.load_state_dict(torch.load("karn_lstm_v2.pth",
-                                  map_location="cpu",
-                                  weights_only=True))
+model.load_state_dict(torch.load(
+    "karn_lstm_v2.pth",
+    map_location="cpu",
+    weights_only=True
+))
 model.eval()
 print("Model loaded successfully")
 
@@ -83,23 +93,16 @@ def compute_alert(probs, score):
         return "GREEN", "Quiet Sun — normal solar weather"
 
 def run_inference(window_array):
-    """
-    Takes a (60, 2) numpy array, runs KARN model, returns prediction dict.
-    """
-    # Validate shape
     if window_array.shape != (60, 2):
         raise ValueError(f"Expected shape (60, 2), got {window_array.shape}")
 
-    # Check for NaN or inf
     if np.any(np.isnan(window_array)) or np.any(np.isinf(window_array)):
         raise ValueError("Input contains NaN or infinite values")
 
-    # Log normalize
-    soft_norm = log_normalize(window_array[:, 0])
-    hard_norm = log_normalize(window_array[:, 1])
+    soft_norm  = log_normalize(window_array[:, 0])
+    hard_norm  = log_normalize(window_array[:, 1])
     normalized = np.stack([soft_norm, hard_norm], axis=1).astype(np.float32)
 
-    # Run model
     tensor = torch.tensor(normalized).unsqueeze(0)
     with torch.no_grad():
         logits = model(tensor)
@@ -110,7 +113,7 @@ def run_inference(window_array):
     level, msg = compute_alert(probs, score)
 
     return {
-        "predicted_class":  CLASS_NAMES[pred_class],
+        "predicted_class": CLASS_NAMES[pred_class],
         "probabilities": {
             "quiet":   round(probs[0], 4),
             "c_class": round(probs[1], 4),
@@ -124,9 +127,6 @@ def run_inference(window_array):
     }
 
 def fetch_live_goes():
-    """
-    Fetch latest GOES-16 X-ray data and build a 60-minute window.
-    """
     url      = "https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json"
     response = requests.get(url, timeout=30)
     raw      = response.text.strip().replace('][', ',')
@@ -138,7 +138,6 @@ def fetch_live_goes():
     df             = df.dropna(subset=['flux'])
     df             = df.sort_values('time_tag')
 
-    # Get last 60 minutes of each channel
     soft = df[df['energy'] == '0.1-0.8nm'].tail(60)
     hard = df[df['energy'] == '0.05-0.4nm'].tail(60)
 
@@ -149,24 +148,75 @@ def fetch_live_goes():
     soft_vals = soft['flux'].values[-min_len:]
     hard_vals = hard['flux'].values[-min_len:]
 
-    # Interpolate to exactly 60 points
-    soft_60 = np.interp(np.linspace(0, 1, 60),
-                        np.linspace(0, 1, len(soft_vals)), soft_vals)
-    hard_60 = np.interp(np.linspace(0, 1, 60),
-                        np.linspace(0, 1, len(hard_vals)), hard_vals)
+    soft_60 = np.interp(
+        np.linspace(0, 1, 60),
+        np.linspace(0, 1, len(soft_vals)),
+        soft_vals
+    )
+    hard_60 = np.interp(
+        np.linspace(0, 1, 60),
+        np.linspace(0, 1, len(hard_vals)),
+        hard_vals
+    )
 
-    window = np.stack([soft_60, hard_60], axis=1)
-
-    # Current flux values for response
+    window       = np.stack([soft_60, hard_60], axis=1)
     current_soft = float(soft['flux'].iloc[-1])
     current_hard = float(hard['flux'].iloc[-1])
     latest_time  = str(soft['time_tag'].iloc[-1])
 
     return window, current_soft, current_hard, latest_time
 
+# ── THIS MUST BE AT TOP LEVEL — NOT INSIDE fetch_live_goes ───────────────────
+def save_prediction_to_db(result: dict, soft_flux: float, hard_flux: float):
+    """Save prediction to Supabase — runs in background."""
+    try:
+        row = {
+            "timestamp":       result["timestamp"],
+            "predicted_class": result["predicted_class"],
+            "quiet_prob":      result["probabilities"]["quiet"],
+            "c_prob":          result["probabilities"]["c_class"],
+            "m_prob":          result["probabilities"]["m_class"],
+            "x_prob":          result["probabilities"]["x_class"],
+            "severity_score":  result["severity_score"],
+            "alert_level":     result["alert_level"],
+            "alert_message":   result["alert_message"],
+            "soft_xray_flux":  soft_flux,
+            "hard_xray_flux":  hard_flux,
+            "data_source":     "NOAA GOES-16"
+        }
+        supabase.table("predictions").insert(row).execute()
+        print(f"Saved to Supabase: {result['alert_level']} — {result['predicted_class']}")
+
+        # If flare — also save to flare_events
+        if result["alert_level"] in ["WARNING", "CRITICAL", "ADVISORY"]:
+            pred_id = supabase.table("predictions")\
+                .select("id")\
+                .order("created_at", desc=True)\
+                .limit(1)\
+                .execute()
+
+            if pred_id.data:
+                flare_row = {
+                    "prediction_id": pred_id.data[0]["id"],
+                    "detected_at":   result["timestamp"],
+                    "flare_class":   result["predicted_class"],
+                    "peak_prob":     max(
+                        result["probabilities"]["c_class"],
+                        result["probabilities"]["m_class"],
+                        result["probabilities"]["x_class"]
+                    ),
+                    "severity_score": result["severity_score"],
+                    "alert_level":    result["alert_level"],
+                }
+                supabase.table("flare_events").insert(flare_row).execute()
+                print(f"Flare event saved to flare_events table")
+
+    except Exception as e:
+        print(f"Supabase save failed: {e}")
+
 # ── Input Schema ──────────────────────────────────────────────────────────────
 class PredictRequest(BaseModel):
-    window: List[List[float]]  # Shape: (60, 2)
+    window: List[List[float]]
 
     class Config:
         json_schema_extra = {
@@ -176,7 +226,6 @@ class PredictRequest(BaseModel):
         }
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
-
 @app.get("/")
 def root():
     return {
@@ -185,7 +234,7 @@ def root():
         "description": "Real-time solar flare prediction using Aditya-L1 inspired ML pipeline",
         "endpoints": {
             "health":  "/health",
-            "predict": "/predict  [POST]",
+            "predict": "/predict [POST]",
             "live":    "/live"
         }
     }
@@ -193,22 +242,18 @@ def root():
 @app.get("/health")
 def health():
     return {
-        "status":     "ok",
-        "model":      "karn_lstm_v2",
-        "classes":    CLASS_NAMES,
+        "status":      "ok",
+        "model":       "karn_lstm_v2",
+        "classes":     CLASS_NAMES,
         "input_shape": "(60, 2)",
-        "timestamp":  datetime.utcnow().isoformat() + "Z"
+        "timestamp":   datetime.utcnow().isoformat() + "Z"
     }
 
 @app.post("/predict")
 def predict(request: PredictRequest):
-    """
-    Takes a 60x2 window of solar X-ray flux values.
-    Returns flare class prediction, probabilities, and alert status.
-    """
     try:
         window_array = np.array(request.window, dtype=np.float32)
-        
+
         if window_array.shape != (60, 2):
             raise HTTPException(
                 status_code=422,
@@ -224,22 +269,22 @@ def predict(request: PredictRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/live")
-def live_prediction():
-    """
-    Fetches real-time GOES-16 X-ray data and returns current solar weather prediction.
-    No input needed — KARN fetches live data automatically.
-    """
+def live_prediction(background_tasks: BackgroundTasks):
     try:
         window, soft, hard, latest_time = fetch_live_goes()
         result = run_inference(window)
 
-        # Add live data info to response
         result["live_data"] = {
             "latest_observation": latest_time,
             "soft_xray_flux":     f"{soft:.2e} W/m²",
             "hard_xray_flux":     f"{hard:.2e} W/m²",
             "data_source":        "NOAA GOES-16"
         }
+
+        # Save in background — API responds instantly
+        background_tasks.add_task(
+            save_prediction_to_db, result, soft, hard
+        )
 
         return result
 
