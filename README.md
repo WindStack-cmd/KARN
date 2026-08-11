@@ -39,7 +39,34 @@ Optimized to process multi-channel inputs resembling the payload specs of India'
 
 ## 🛠️ System Data Schema & Pipeline Flow
 
-PROJECT KARN SYSTEM TOPOLOGY[ NOAA GOES-16 API ]                       [ NASA DONKI DB ]Real-Time Ingestion Loop               2,183 Labeled Flare Events│                                           │▼                                           ▼┌───────────────────────┐                   ┌───────────────────────┐│     FastAPI /live     │ ────────────────> │    dataset_v2.py      ││ Async Telemetry Worker│                   │ Tensor Windowing (60) │└───────────┬───────────┘                   └───────────┬───────────┘│                                           │▼ (Clean Matrix Stream)                     ▼ (Validation Split)┌───────────────────────────────────────────────────────────────────┐│              CORE PYTORCH MULTI-CLASS LSTM MODEL                  ││     Achieved Validation Recall: C: 100.0% | M: 99.4% | X: 100.0%  │└───────────────────────────────┬───────────────────────────────────┘│▼ (Standard JSON Response Payload)┌───────────────────────────────────────────────────────────────────┐│                   SUPABASE POSTGRESQL FREE TIER                   ││      Broadcasts INSERT changes instantly via WebSockets Pipeline  │└───────────────────────────────┬───────────────────────────────────┘│▼ (Zero-Delay WebSockets Push)┌───────────────────────────────────────────────────────────────────┐│                  REACT TELEMETRY DASHBOARD (VITE)                 ││    Renders Log Light Curves, Forecast Matrices, & History Logs    │└───────────────────────────────────────────────────────────────────
+> **End-to-End Data Lifecycle Topology**
+> 
+> ```
+> [ NOAA GOES-16 Satellite API ] ──► (Real-Time Ingestion Loop)
+>                                              │
+>                                              ▼
+> [ FastAPI Microservice Engine ] ──► [ /live Async Telemetry Endpoint ]
+>                                              │
+>                                              ▼
+> [ Pre-Stage 1 Telemetry Gate ] ──► (Filters Noise Spikes & NaNs)
+>                                              │
+>                                              ▼
+> [ Core PyTorch LSTM Architecture ] ──► (Inference Execution & Logit Softmax)
+>                                              │
+>                                              ▼
+> [ Cloud Supabase DB Cluster ] ──► [ Automated PostgreSQL Table Insert ]
+>                                              │
+>                                              ▼
+> [ React Dashboard WebSockets ] ──► (Zero-Delay Instant UI State Re-Render)
+> ```
+
+### 📊 Step-by-Step Production Pipeline Execution
+*   **Ingestion:** The background worker requests live flux readings from the GOES-16 satellite endpoint every 60 seconds, handling network failures gracefully.
+*   **Preprocessing:** The incoming stream passes through your custom `gate.py` pipeline, isolating solar energetic events from cosmic ray noise hits.
+*   **Sequential Inference:** Valid arrays are structured into `(1, 60, 2)` tracking matrices and evaluated via your deep LSTM cell memory layers.
+*   **Probability Calibration:** Uncalibrated model logits are smoothed across your custom multi-class distribution matrix to calculate the risk score metrics.
+*   **Persistence & Synchronization:** The backend writes the float output metrics to your cloud instance. Supabase intercepts this insert block and pushes a WebSocket data package to your active React application, instantly painting the telemetry lines on screen.
+
 ---
 
 ## 📊 Model Performance Matrix
