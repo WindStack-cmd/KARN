@@ -10,17 +10,18 @@ def extract_solexs_fits(file_path):
         # Access Extension 1 ('RATE') directly
         data = hdul[1].data
         
-        # Extract headers. SoLEXS 'TIME' column is seconds from an observation reference time.
-        # We will keep raw TIME for merging or convert using the header reference epoch.
+        # SoLEXS 'TIME' column is UNIX epoch seconds
         time_array = np.array(data['TIME'], dtype=float)
         counts_array = np.array(data['COUNTS'], dtype=float)
         
-        # Convert relative observation seconds into structural timeline indexes
         df = pd.DataFrame({
             'time_seconds': time_array,
             'solexs_flux': counts_array
         })
-        return df.sort_values('time_seconds').reset_index(drop=True)
+        # Convert UNIX epoch seconds into datetime UTC timestamps matching HEL1OS
+        df['timestamp'] = pd.to_datetime(df['time_seconds'], unit='s')
+        
+        return df[['time_seconds', 'timestamp', 'solexs_flux']].sort_values('time_seconds').reset_index(drop=True)
 
 def extract_hel1os_fits(file_path):
     print(f"Parsing HEL1OS Level-1 FITS: {os.path.basename(file_path)}")
@@ -39,9 +40,8 @@ def extract_hel1os_fits(file_path):
             'hel1os_flux': ctr_rate
         })
         
-        # Strip timezones and compute relative second offsets matching today's target date base
         df['timestamp'] = df['timestamp'].dt.tz_localize(None)
-        start_time = df['timestamp'].min()
-        df['time_seconds'] = (df['timestamp'] - start_time).dt.total_seconds()
+        # Convert timestamp to absolute UNIX epoch seconds (keeping it absolute, consistent with SoLEXS)
+        df['time_seconds'] = (df['timestamp'] - pd.Timestamp("1970-01-01")).dt.total_seconds()
         
         return df[['time_seconds', 'timestamp', 'hel1os_flux']].sort_values('time_seconds').reset_index(drop=True)

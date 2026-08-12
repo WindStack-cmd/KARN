@@ -20,16 +20,17 @@ def run_synchronization_pipeline():
 
     print("\nSynchronizing dual instruments along relative second timeline tracks...")
     
-    # Merge timelines on matching time seconds
+    # Merge timelines on matching time seconds and reconstructed timestamps
     # Rounding seconds to the nearest whole integer ensures perfect alignment points
     solexs_df['time_seconds'] = solexs_df['time_seconds'].round()
     hel1os_df['time_seconds'] = hel1os_df['time_seconds'].round()
     
-    synced_df = pd.merge(solexs_df, hel1os_df, on='time_seconds', how='outer')
-    synced_df = synced_df.sort_values('time_seconds').reset_index(drop=True)
+    # Re-calculate clean timestamps using rounded time_seconds to prevent sub-second mismatch
+    solexs_df['timestamp'] = pd.to_datetime(solexs_df['time_seconds'], unit='s')
+    hel1os_df['timestamp'] = pd.to_datetime(hel1os_df['time_seconds'], unit='s')
     
-    # Handle the master datetime column backfilling
-    synced_df['timestamp'] = synced_df['timestamp'].ffill().bfill()
+    synced_df = pd.merge(solexs_df, hel1os_df, on=['time_seconds', 'timestamp'], how='outer')
+    synced_df = synced_df.sort_values('time_seconds').reset_index(drop=True)
     
     print("Applying astronomical interpolation to resolve sensor gaps...")
     synced_df['solexs_flux'] = synced_df['solexs_flux'].interpolate(method='linear').ffill().bfill()
