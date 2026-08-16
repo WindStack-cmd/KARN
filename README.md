@@ -15,7 +15,6 @@ Optimized to process multi-channel inputs resembling the payload specs of India'
 ---
 
 ## ⚡ Key Architectural Features
-
 ### 🌌 1. Algorithmic Core & Deep Learning Engine
 *   **Context-Aware Weighted Gate (Pre-Stage 1 Anomaly Filter):** Programmatic rule-based intercept layer designed to catch instrumentation dropouts and drop high-frequency cosmic-ray particle spikes before sequence evaluation.
 *   **Deep Multi-Layer Recurrent LSTM Engine:** 2-layer sequential Long Short-Term Memory network utilizing 128 hidden dimensions to parse deep temporal patterns and slow, hours-long gradual solar storm developments.
