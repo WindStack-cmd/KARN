@@ -28,6 +28,7 @@ def execute_safe_purged_windowing():
     # LOAD
     # ========================================================
 
+
     print("Loading data tracks into memory...")
 
     feat_df = pd.read_csv(FEATURES_PATH)
