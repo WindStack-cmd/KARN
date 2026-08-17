@@ -1,17 +1,42 @@
-# Ignore local Python Virtual Environment
+# Python environments and caches
+.venv/
+venv/
 ml/venv/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
 
-# Ignore model binaries and heavy checkpoints
+# Environment files
+.env
+ml/.env
+
+# Model binaries and tensors
+models/
+*.pt
 *.pth
+*.pkl
 
-# Ignore heavy raw and processed datasets
+# Heavy raw and processed datasets
 data/raw/
 data/processed/
+*.fits
 
+# Generated outputs (keep baseline metrics optional for review)
+results/*
+!results/baseline_metrics.json
 
-.env
-*.pth
-__pycache__/
-venv/
+# IDE and developer tooling
+.vscode/
+.idea/
+*.swp
+*.suo
+.project
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
