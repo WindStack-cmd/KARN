@@ -1,0 +1,151 @@
+{
+  "evaluation_status": "PROTOTYPE_ONLY",
+  "scientific_validity": "NOT_VALID_FOR_REAL_SOLAR_FLARE_PERFORMANCE",
+  "warning": "Fusion metrics validate software execution only; they are not scientifically representative.",
+  "model_name": "FusionStage1Model",
+  "checkpoint_path": "C:\\Users\\DELL\\OneDrive\\Desktop\\KARN\\models\\fusion_stage1.pt",
+  "device": "cpu",
+  "parameter_count": 2091,
+  "training_config": {
+    "seed": 42,
+    "batch_size": 32,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "max_epochs": 30,
+    "early_stopping_patience": 6,
+    "early_stopping_min_delta": 0.0001,
+    "projection_dim": 16,
+    "temporal_hidden_dim": 24,
+    "device": "cpu"
+  },
+  "training_runtime_seconds": 2.797882318496704,
+  "best_epoch": 1,
+  "best_val_loss": 2.741299675570594,
+  "feature_groups": {
+    "total": 23,
+    "solexs": 10,
+    "hel1os": 10,
+    "context": 3
+  },
+  "splits": {
+    "train": {
+      "loss": 1.2581462757340793,
+      "num_samples": 906,
+      "num_negative": 875,
+      "num_positive": 31,
+      "accuracy": 0.5507726269315674,
+      "precision": 0.07077625570776255,
+      "recall": 1.0,
+      "f1_score": 0.13219616204690832,
+      "confusion_matrix": [
+        [
+          468,
+          407
+        ],
+        [
+          0,
+          31
+        ]
+      ],
+      "roc_auc": 0.8106912442396313,
+      "pr_auc": 0.08367887554672726,
+      "fusion_weight_mean_solexs": 0.3912924671995229,
+      "fusion_weight_mean_hel1os": 0.6087075307451445,
+      "fusion_weight_max_sum_deviation": 1.1920928955078125e-07
+    },
+    "validation": {
+      "loss": 2.741299675570594,
+      "num_samples": 258,
+      "num_negative": 227,
+      "num_positive": 31,
+      "accuracy": 0.37209302325581395,
+      "precision": 0.09815950920245399,
+      "recall": 0.5161290322580645,
+      "f1_score": 0.16494845360824742,
+      "confusion_matrix": [
+        [
+          80,
+          147
+        ],
+        [
+          15,
+          16
+        ]
+      ],
+      "roc_auc": 0.3761546113400597,
+      "pr_auc": 0.09325758953506028,
+      "fusion_weight_mean_solexs": 0.10396419631110297,
+      "fusion_weight_mean_hel1os": 0.8960357904434204,
+      "fusion_weight_max_sum_deviation": 1.1920928955078125e-07
+    },
+    "test": {
+      "loss": 3.6398050685723624,
+      "num_samples": 186,
+      "num_negative": 155,
+      "num_positive": 31,
+      "accuracy": 0.2956989247311828,
+      "precision": 0.19135802469135801,
+      "recall": 1.0,
+      "f1_score": 0.32124352331606215,
+      "confusion_matrix": [
+        [
+          24,
+          131
+        ],
+        [
+          0,
+          31
+        ]
+      ],
+      "roc_auc": 0.32882414151925077,
+      "pr_auc": 0.12465020645833011,
+      "fusion_weight_mean_solexs": 0.10588088631629944,
+      "fusion_weight_mean_hel1os": 0.894119123617808,
+      "fusion_weight_max_sum_deviation": 1.1920928955078125e-07
+    }
+  },
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 1.2966011392659154,
+      "val_loss": 2.741299675570594,
+      "val_f1": 0.16494845360824742
+    },
+    {
+      "epoch": 2,
+      "train_loss": 1.251921378332993,
+      "val_loss": 4.713144249386257,
+      "val_f1": 0.0
+    },
+    {
+      "epoch": 3,
+      "train_loss": 1.0585833849578068,
+      "val_loss": 10.02789659715361,
+      "val_f1": 0.0
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.9162509235842474,
+      "val_loss": 7.7783861719071865,
+      "val_f1": 0.0
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.7027134694929781,
+      "val_loss": 33.921559731165566,
+      "val_f1": 0.0
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.516261218436833,
+      "val_loss": 94.71504049830966,
+      "val_f1": 0.0
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.37261447135423276,
+      "val_loss": 197.31259155273438,
+      "val_f1": 0.0
+    }
+  ]
+}

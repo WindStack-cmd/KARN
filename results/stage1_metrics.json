@@ -1,0 +1,134 @@
+{
+  "evaluation_status": "PROTOTYPE_ONLY",
+  "scientific_validity": "NOT_VALID_FOR_REAL_SOLAR_FLARE_PERFORMANCE",
+  "warning": "Synthetic/prototype labels are for software pipeline validation only.",
+  "model_name": "Stage1ConvNet",
+  "checkpoint_path": "C:\\Users\\DELL\\OneDrive\\Desktop\\KARN\\models\\stage1_flare_detector.pt",
+  "device": "cpu",
+  "parameter_count": 5377,
+  "training_config": {
+    "seed": 42,
+    "batch_size": 32,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "max_epochs": 30,
+    "early_stopping_patience": 6,
+    "early_stopping_min_delta": 0.0001,
+    "device": "cpu"
+  },
+  "training_runtime_seconds": 2.4349679946899414,
+  "best_epoch": 1,
+  "best_val_loss": 20.531446137362057,
+  "splits": {
+    "train": {
+      "loss": 1.1779342715082497,
+      "num_samples": 906,
+      "num_negative": 875,
+      "num_positive": 31,
+      "accuracy": 0.9657836644591612,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0,
+      "confusion_matrix": [
+        [
+          875,
+          0
+        ],
+        [
+          31,
+          0
+        ]
+      ],
+      "roc_auc": 0.9980829493087557,
+      "pr_auc": 0.9549789559006561
+    },
+    "validation": {
+      "loss": 20.531446137362057,
+      "num_samples": 258,
+      "num_negative": 227,
+      "num_positive": 31,
+      "accuracy": 0.8798449612403101,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0,
+      "confusion_matrix": [
+        [
+          227,
+          0
+        ],
+        [
+          31,
+          0
+        ]
+      ],
+      "roc_auc": 0.47676566718772206,
+      "pr_auc": 0.11053426405791492
+    },
+    "test": {
+      "loss": 31.31642768609648,
+      "num_samples": 186,
+      "num_negative": 155,
+      "num_positive": 31,
+      "accuracy": 0.8333333333333334,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0,
+      "confusion_matrix": [
+        [
+          155,
+          0
+        ],
+        [
+          31,
+          0
+        ]
+      ],
+      "roc_auc": 0.47200832466181064,
+      "pr_auc": 0.15343566367489953
+    }
+  },
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 1.3240555709805981,
+      "val_loss": 20.531446137362057,
+      "val_f1": 0.0
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.9550944541035027,
+      "val_loss": 68.05940755208333,
+      "val_f1": 0.0
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.6108731391101048,
+      "val_loss": 153.02750311957465,
+      "val_f1": 0.0
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.3463582466517029,
+      "val_loss": 247.29959106445312,
+      "val_f1": 0.0
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.21713985276713582,
+      "val_loss": 349.77691650390625,
+      "val_f1": 0.0
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.1417150405588849,
+      "val_loss": 429.7047424316406,
+      "val_f1": 0.0
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.10701329307630658,
+      "val_loss": 504.251220703125,
+      "val_f1": 0.0
+    }
+  ]
+}

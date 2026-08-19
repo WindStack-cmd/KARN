@@ -26,8 +26,12 @@ data/processed/
 *.fits
 
 # Generated outputs (keep baseline metrics optional for review)
+# Generated outputs
 results/*
 !results/baseline_metrics.json
+!results/stage1_metrics.json
+!results/fusion_metrics.json
+!results/day11_report.md
 
 # IDE and developer tooling
 .vscode/
