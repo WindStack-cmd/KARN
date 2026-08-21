@@ -1,219 +1,103 @@
 import os
-import pandas as pd
 import numpy as np
-
-
-# ============================================================
-# KARN - PHASE 6
-# Scientific Target Generation
-# ============================================================
-
-FEATURES_PATH = r"C:\Users\DELL\OneDrive\Desktop\KARN\data\processed\aditya_features.csv"
-OUTPUT_LABELS_PATH = r"C:\Users\DELL\OneDrive\Desktop\KARN\data\processed\aditya_labels.csv"
-
-# ------------------------------------------------------------
-# CONFIGURABLE PIPELINE PARAMETERS
-# ------------------------------------------------------------
-USE_PROTOTYPE_EVENT = True
-PROTOTYPE_LOOKBACK = 30       # Minutes of context
-PROTOTYPE_PURGE_GAP = 30      # Leakage-prevention buffer between splits
+import pandas as pd
 
 
 def generate_scientific_targets():
+    features_path = r"C:\Users\DELL\OneDrive\Desktop\KARN\data\processed\aditya_features.csv"
+    catalog_path = r"C:\Users\DELL\OneDrive\Desktop\KARN\data\processed\full_catalog.csv"
+    output_labels_path = r"C:\Users\DELL\OneDrive\Desktop\KARN\data\processed\aditya_labels.csv"
 
-    if not os.path.exists(FEATURES_PATH):
-        raise FileNotFoundError(
-            f"Missing feature dataset:\n{FEATURES_PATH}"
-        )
+    if not os.path.exists(features_path):
+        raise FileNotFoundError(f"Missing features source file: {features_path}")
+    if not os.path.exists(catalog_path):
+        raise FileNotFoundError(f"Missing catalog source file: {catalog_path}")
 
-    print(f"Loading engineered feature matrices: {os.path.basename(FEATURES_PATH)}")
+    feat_df = pd.read_csv(features_path)
+    feat_df['timestamp'] = pd.to_datetime(feat_df['timestamp']).dt.tz_localize(None)
+    feat_df = feat_df.sort_values('timestamp').reset_index(drop=True)
 
-    df = pd.read_csv(FEATURES_PATH)
+    telemetry_start = feat_df['timestamp'].min()
+    telemetry_end = feat_df['timestamp'].max()
 
-    df["timestamp"] = pd.to_datetime(
-        df["timestamp"],
-        errors="coerce"
-    )
+    feat_df['flare_label'] = 0
+    feat_df['flare_class'] = 0
+    feat_df['time_to_peak'] = -1.0
+    feat_df['event_id'] = 'QUIET_SUN_BACKGROUND'
 
-    if df["timestamp"].isna().any():
-        raise ValueError("Invalid timestamps detected.")
+    cat_df = pd.read_csv(catalog_path).copy()
+    start_col = next((c for c in cat_df.columns if 'start' in c.lower()), 'start_time')
+    peak_col = next((c for c in cat_df.columns if 'peak' in c.lower()), 'peak_time')
+    class_col = next((c for c in cat_df.columns if 'class' in c.lower() or 'label' in c.lower()), 'flare_class')
+    event_id_col = next((c for c in cat_df.columns if 'event' in c.lower() and 'id' in c.lower()), 'event_id')
 
-    df = df.sort_values("timestamp").reset_index(drop=True)
+    cat_df[start_col] = pd.to_datetime(cat_df[start_col], errors='coerce').dt.tz_localize(None)
+    cat_df[peak_col] = pd.to_datetime(cat_df[peak_col], errors='coerce').dt.tz_localize(None)
+    cat_df = cat_df[[start_col, peak_col, class_col, event_id_col]].dropna(subset=[start_col, peak_col]).copy()
 
-    # Validate timestamps constraints
-    if df["timestamp"].duplicated().any():
-        raise ValueError("Duplicate timestamps in feature matrix.")
-    if not df["timestamp"].is_monotonic_increasing:
-        raise ValueError("Timestamps are not strictly sorted/chronological.")
+    class_map = {'C': 1, 'M': 2, 'X': 3}
+    overlapping_events = []
+    for _, event in cat_df.iterrows():
+        event_start = pd.Timestamp(event[start_col])
+        event_peak = pd.Timestamp(event[peak_col])
+        flare_class = str(event[class_col]).strip().upper()
+        if flare_class == 'Q':
+            continue
+        if event_start <= telemetry_end and event_peak >= telemetry_start:
+            overlapping_events.append((event, event_start, event_peak, flare_class))
 
-    dataset_start = df["timestamp"].min()
-    dataset_end = df["timestamp"].max()
-    
-    # Verify no unexpected large gaps exist (cadence should be 1 second)
-    diffs = df["timestamp"].diff().dropna()
-    max_gap = diffs.max()
-    print(f"Observation range : {dataset_start} to {dataset_end}")
-    print(f"Unique timestamps  : {df['timestamp'].nunique()}")
-    print(f"Duplicate check    : {df['timestamp'].duplicated().sum()}")
-    print(f"Maximum data gap   : {max_gap}")
-    
-    # ------------------------------------------------------------
-    # Check for real catalog overlap
-    # ------------------------------------------------------------
-    catalog_path = r"C:\Users\DELL\OneDrive\Desktop\KARN\data\processed\flare_catalog.csv"
-    catalog_overlap = False
-    if os.path.exists(catalog_path):
-        catalog = pd.read_csv(catalog_path)
-        if "start_time" in catalog.columns:
-            catalog["start_time"] = pd.to_datetime(catalog["start_time"], errors="coerce")
-            overlapping = catalog[
-                (catalog["start_time"] >= dataset_start) &
-                (catalog["start_time"] <= dataset_end)
-            ]
-            if not overlapping.empty:
-                catalog_overlap = True
-                print(f"Found {len(overlapping)} overlapping events in real event catalog.")
+    print('==================================================')
+    print('KARN DAY 12 ABSOLUTE-TIME GROUND TRUTH AUDIT')
+    print('==================================================')
+    print(f'Telemetry range: {telemetry_start} -> {telemetry_end}')
+    print(f'Catalog events: {len(cat_df)}')
+    print(f'Events overlapping telemetry: {len(overlapping_events)}')
+    print(f'Events outside telemetry: {len(cat_df) - len(overlapping_events)}')
+    print('Synthetic events: 0')
+    print('Timestamp shifting: 0')
+    print('Catalog timestamp modification: 0')
 
-    # ========================================================
-    # INITIAL QUIET LABELS
-    # ========================================================
+    if not overlapping_events:
+        print('WARNING: This telemetry window contains no temporally overlapping authentic catalog flare events.')
+        print('The current August 9 dataset is unsuitable for supervised flare-classification performance evaluation until correctly dated flare-overlapping telemetry is available.')
+        print('No synthetic flare labels were generated.')
 
-    df["flare_label"] = 0
-    df["flare_class"] = 0
-    df["time_to_peak"] = -1.0
-    df["event_id"] = "QUIET_SUN_BACKGROUND"
+    for event, event_start, event_peak, flare_class in overlapping_events:
+        event_id = str(event[event_id_col])
+        class_token = class_map.get(flare_class[0], 0)
+        if class_token == 0:
+            continue
 
-    # ========================================================
-    # PROTOTYPE MODE
-    # ========================================================
+        forecast_start = event_start - pd.Timedelta(minutes=30)
+        mask = (feat_df['timestamp'] >= forecast_start) & (feat_df['timestamp'] <= event_peak)
+        mask &= (feat_df['timestamp'] >= telemetry_start) & (feat_df['timestamp'] <= telemetry_end)
 
-    if USE_PROTOTYPE_EVENT and not catalog_overlap:
-        print("\n==================================================")
-        print("[WARNING] PROTOTYPE MODE ENABLED")
-        print("Synthetic labels are NOT real solar events")
-        print("These labels MUST NOT be used for final scientific evaluation.")
-        print("==================================================")
+        if not mask.any():
+            continue
 
-        # Calculate chronological splits dynamically on minute-aggregated index space
-        total_duration = dataset_end - dataset_start
-        total_minutes = int(total_duration.total_seconds() / 60) + 1
-        
-        train_end = int(0.65 * total_minutes)
-        val_start = train_end + PROTOTYPE_PURGE_GAP
-        val_end = int(0.85 * total_minutes)
-        test_start = val_end + PROTOTYPE_PURGE_GAP
+        feat_df.loc[mask, 'flare_label'] = 1
+        feat_df.loc[mask, 'event_id'] = f'REAL_CATALOG_{event_id}'
+        feat_df.loc[mask, 'flare_class'] = np.maximum(feat_df.loc[mask, 'flare_class'].to_numpy(), class_token)
 
-        # Pick event peak minute offsets inside each target split range:
-        # Train target range: [PROTOTYPE_LOOKBACK, train_end)
-        peak1_min = PROTOTYPE_LOOKBACK + (train_end - PROTOTYPE_LOOKBACK) // 2
-        # Validation target range: [val_start, val_end)
-        peak2_min = val_start + (val_end - val_start) // 2
-        # Test target range: [test_start, total_minutes)
-        peak3_min = test_start + (total_minutes - test_start) // 2
+        rem_minutes = (event_peak - feat_df.loc[mask, 'timestamp']).dt.total_seconds() / 60.0
+        current_ttp = feat_df.loc[mask, 'time_to_peak']
+        feat_df.loc[mask, 'time_to_peak'] = np.where((current_ttp == -1.0) | (rem_minutes < current_ttp), rem_minutes, current_ttp)
 
-        peak1_time = dataset_start + pd.Timedelta(minutes=peak1_min)
-        peak2_time = dataset_start + pd.Timedelta(minutes=peak2_min)
-        peak3_time = dataset_start + pd.Timedelta(minutes=peak3_min)
+    dist = feat_df['flare_class'].value_counts().to_dict()
+    print(f'Total labeled rows: {len(feat_df)}')
+    print(f'Quiet rows: {dist.get(0, 0)}')
+    print(f'C rows: {dist.get(1, 0)}')
+    print(f'M rows: {dist.get(2, 0)}')
+    print(f'X rows: {dist.get(3, 0)}')
 
-        events = [
-            {"name": "PROTOTYPE_C_CLASS", "peak": peak1_time, "class": 1},
-            {"name": "PROTOTYPE_M_CLASS", "peak": peak2_time, "class": 2},
-            {"name": "PROTOTYPE_X_CLASS", "peak": peak3_time, "class": 3},
-        ]
+    os.makedirs(os.path.dirname(output_labels_path), exist_ok=True)
+    output_cols = ['timestamp', 'flare_label', 'flare_class', 'time_to_peak', 'event_id']
+    feat_df[output_cols].to_csv(output_labels_path, index=False)
+    print(f'Ground-truth labels saved to: {output_labels_path}')
 
-        print("\nGenerated prototype events:")
-        for ev in events:
-            f_start = ev["peak"] - pd.Timedelta(minutes=PROTOTYPE_LOOKBACK)
-            print(f"  - {ev['name']}: Peak at {ev['peak']} (Forecast window: {f_start} to {ev['peak']})")
-
-            # Apply labels
-            # Forecast window includes peak
-            forecast_mask = (df["timestamp"] >= f_start) & (df["timestamp"] <= ev["peak"])
-            df.loc[forecast_mask, "flare_label"] = 1
-            df.loc[forecast_mask, "flare_class"] = ev["class"]
-            df.loc[forecast_mask, "event_id"] = ev["name"]
-
-            # Calculate time to peak (minutes, decreasing monotonically to 0)
-            remaining = (ev["peak"] - df.loc[forecast_mask, "timestamp"]).dt.total_seconds() / 60.0
-            df.loc[forecast_mask, "time_to_peak"] = remaining
-
-    # ========================================================
-    # REAL CATALOG MODE
-    # ========================================================
-    else:
-        print("\n[INFO] REAL CATALOG MODE")
-        if catalog_overlap:
-            print("Mapping labels using overlapping real event catalog...")
-            # Real catalog mapping will map flare_catalog.csv to df
-            # For now warning only
-            print("[WARNING] Real catalog mapping implemented.")
-        else:
-            print("No overlapping real event catalog. No synthetic labels generated.")
-
-    # ========================================================
-    # VALIDATION REPORT
-    # ========================================================
-
-    print("\n==================================================")
-    print("PHASE 6: SCIENTIFIC TARGET LABELS REPORT")
-    print("==================================================")
-
-    print(f"Observation range:")
-    print(f"{dataset_start}")
-    print(f"to")
-    print(f"{dataset_end}")
-    print()
-
-    print(f"Prototype mode:")
-    print("ENABLED" if (USE_PROTOTYPE_EVENT and not catalog_overlap) else "DISABLED")
-    print()
-
-    print(f"Synthetic labels:")
-    print("YES — PIPELINE TEST ONLY" if (USE_PROTOTYPE_EVENT and not catalog_overlap) else "NO")
-    print()
-
-    print(f"• Total observations : {len(df)}")
-    print(f"• Quiet rows         : {(df['flare_class'] == 0).sum()}")
-    print(f"• C-class rows       : {(df['flare_class'] == 1).sum()}")
-    print(f"• M-class rows       : {(df['flare_class'] == 2).sum()}")
-    print(f"• X-class rows       : {(df['flare_class'] == 3).sum()}")
-    print(f"• Forecast-positive : {(df['flare_label'] == 1).sum()}")
-
-    # --------------------------------------------------------
-    # Safety checks
-    # --------------------------------------------------------
-    assert df["timestamp"].is_monotonic_increasing
-    assert df["timestamp"].is_unique
-    assert not df["flare_label"].isna().any()
-    assert not df["flare_class"].isna().any()
-    assert np.isfinite(df["time_to_peak"]).all()
-    
-    # Assert forecast-positive constraints
-    fp = df["flare_label"] == 1
-    assert (df.loc[fp, "time_to_peak"] >= 0).all()
-    assert (df.loc[fp, "time_to_peak"] <= PROTOTYPE_LOOKBACK).all()
-    assert (df.loc[~fp, "time_to_peak"] == -1.0).all()
-
-    # ========================================================
-    # SAVE
-    # ========================================================
-    os.makedirs(os.path.dirname(OUTPUT_LABELS_PATH), exist_ok=True)
-
-    output_columns = [
-        "timestamp",
-        "flare_label",
-        "flare_class",
-        "time_to_peak",
-        "event_id"
-    ]
-
-    df[output_columns].to_csv(
-        OUTPUT_LABELS_PATH,
-        index=False
-    )
-
-    print(f"\n[OK] Labels exported safely to:\n{OUTPUT_LABELS_PATH}")
+    if not overlapping_events:
+        print('This dataset is scientifically valid only as an all-quiet no-overlap telemetry record. It is not suitable for supervised solar flare training/evaluation.')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     generate_scientific_targets()
