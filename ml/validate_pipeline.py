@@ -18,18 +18,18 @@ LABELS_PATH = r"C:\Users\DELL\OneDrive\Desktop\KARN\data\processed\aditya_labels
 
 def test_dataset_integrity():
     """
-    Verifies that generated tensors exist, have correct dimensions, and contain no NaNs/Infs.
-    Also verifies timestamp constraints from features/labels.
+    Verifies that generated tensors exist, have valid window dimensions, contain no NaNs/Infs,
+    and remain consistent with the current processed label/feature files without hard-coding
+    legacy synthetic class counts.
     """
     print("\n[Test 1] Verifying Dataset Integrity...")
-    
+
     files = [
         "X_train.pt", "X_val.pt", "X_test.pt",
         "y_train_cls.pt", "y_val_cls.pt", "y_test_cls.pt",
         "y_train_reg.pt", "y_val_reg.pt", "y_test_reg.pt"
     ]
-    
-    # Check that each file exists and load it
+
     tensors = {}
     for f in files:
         path = os.path.join(WINDOWS_DIR, f)
@@ -37,53 +37,57 @@ def test_dataset_integrity():
             print(f"  [-] FAIL: Missing tensor file {f} at {path}")
             return False
         tensors[f] = torch.load(path, map_location="cpu").numpy()
-        
-    # 1. Dimension checks
-    # X_train = (906, 30, 23)
-    # X_val   = (258, 30, 23)
-    # X_test  = (186, 30, 23)
-    if tensors["X_train.pt"].shape != (906, 30, 23):
-        print(f"  [-] FAIL: X_train.pt shape {tensors['X_train.pt'].shape} != (906, 30, 23)")
-        return False
-    if tensors["X_val.pt"].shape != (258, 30, 23):
-        print(f"  [-] FAIL: X_val.pt shape {tensors['X_val.pt'].shape} != (258, 30, 23)")
-        return False
-    if tensors["X_test.pt"].shape != (186, 30, 23):
-        print(f"  [-] FAIL: X_test.pt shape {tensors['X_test.pt'].shape} != (186, 30, 23)")
-        return False
-        
-    for subset in ["train", "val", "test"]:
-        x_shape = tensors[f"X_{subset}.pt"].shape
-        y_cls_shape = tensors[f"y_{subset}_cls.pt"].shape
-        y_reg_shape = tensors[f"y_{subset}_reg.pt"].shape
-        
-        if x_shape[0] != y_cls_shape[0] or x_shape[0] != y_reg_shape[0]:
-            print(f"  [-] FAIL: Length mismatch for {subset} (X={x_shape[0]}, y_cls={y_cls_shape[0]}, y_reg={y_reg_shape[0]})")
+
+    features = pd.read_csv(FEATURES_PATH)
+    labels = pd.read_csv(LABELS_PATH)
+
+    feature_cols = [c for c in features.columns if c not in ["timestamp", "time_seconds"]]
+    expected_feature_dim = len(feature_cols)
+    expected_window_shape = (30, expected_feature_dim)
+
+    for split in ["train", "val", "test"]:
+        x = tensors[f"X_{split}.pt"]
+        y_cls = tensors[f"y_{split}_cls.pt"]
+        y_reg = tensors[f"y_{split}_reg.pt"]
+
+        if x.ndim != 3:
+            print(f"  [-] FAIL: X_{split}.pt is not rank-3: {x.shape}")
             return False
-            
-    # 2. No NaN and Inf checks
+        if x.shape[1:] != expected_window_shape:
+            print(f"  [-] FAIL: X_{split}.pt shape {x.shape} does not match expected (N, 30, {expected_feature_dim})")
+            return False
+        if x.shape[0] != y_cls.shape[0] or x.shape[0] != y_reg.shape[0]:
+            print(f"  [-] FAIL: Length mismatch for {split} (X={x.shape[0]}, y_cls={y_cls.shape[0]}, y_reg={y_reg.shape[0]})")
+            return False
+
     for name, arr in tensors.items():
         if not np.isfinite(arr).all():
             print(f"  [-] FAIL: Tensor {name} contains NaNs or Infs!")
             return False
-            
-    # 3. Class distributions checks
-    # Train: Q=875, C=31
-    # Val: Q=227, M=31
-    # Test: Q=155, X=31
-    for subset, expected in [("train", {0: 875, 1: 31}), ("val", {0: 227, 2: 31}), ("test", {0: 155, 3: 31})]:
-        labels = tensors[f"y_{subset}_cls.pt"]
-        unique, counts = np.unique(labels, return_counts=True)
+
+    for split in ["train", "val", "test"]:
+        labels_arr = tensors[f"y_{split}_cls.pt"]
+        unique, counts = np.unique(labels_arr, return_counts=True)
         dist = dict(zip(unique.tolist(), counts.tolist()))
-        
-        for k, v in expected.items():
-            if dist.get(k, 0) != v:
-                print(f"  [-] FAIL: {subset} class counts mismatch! Expected class {k} count {v}, got {dist.get(k, 0)}")
-                return False
-                
-    # 4. Verify raw telemetry remains untouched
-    # We load aditya_features.csv and aditya_labels.csv and check that they are intact
-    print("  [+] Tensors dimension and integrity check: PASS")
+        print(f"  {split} actual class distribution: {dist}")
+        if split in ["val", "test"]:
+            positive_count = dist.get(1, 0) + dist.get(2, 0) + dist.get(3, 0)
+            if positive_count == 0:
+                print(f"  [WARN] {split} contains no positive flare labels; scientific flare metrics are undefined for this split.")
+
+    features_ts = pd.to_datetime(features["timestamp"], errors="coerce")
+    labels_ts = pd.to_datetime(labels["timestamp"], errors="coerce")
+    if features_ts.isna().any() or labels_ts.isna().any():
+        print("  [-] FAIL: Feature or label timestamps contain NaT values.")
+        return False
+    if features_ts.duplicated().any() or labels_ts.duplicated().any():
+        print("  [-] FAIL: Duplicate timestamps detected in feature or label files.")
+        return False
+    if not features_ts.is_monotonic_increasing or not labels_ts.is_monotonic_increasing:
+        print("  [-] FAIL: Features or labels are not strictly chronological.")
+        return False
+
+    print(f"  [+] Tensors dimension and integrity check: PASS for current dataset (window shape = {expected_window_shape})")
     return True
 
 def test_baseline_models():
