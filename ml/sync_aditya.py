@@ -1,69 +1,59 @@
 import os
 import pandas as pd
-import matplotlib.pyplot as plt
 from read_fits import extract_solexs_fits, extract_hel1os_fits
 
 def run_synchronization_pipeline():
     base_raw_dir = r"C:\Users\DELL\OneDrive\Desktop\KARN\data\raw"
-    solexs_path = os.path.join(base_raw_dir, "solexs_sample.fits.gz")
-    hel1os_path = os.path.join(base_raw_dir, "hel1os_sample.fits")
+    processed_dir = r"C:\Users\DELL\OneDrive\Desktop\KARN\data\processed"
     
-    print("Initializing Aditya-L1 Multi-Channel Processing Engine...\n")
+    day_folders = [d for d in os.listdir(base_raw_dir) if os.path.isdir(os.path.join(base_raw_dir, d)) and d.startswith('day_')]
+    print(f"Initializing Aditya-L1 Multi-Day Processing Engine... Found directories: {day_folders}\n")
     
-    try:
-        # Extract individual instrument data frames using the exact columns discovered
-        solexs_df = extract_solexs_fits(solexs_path)
-        hel1os_df = extract_hel1os_fits(hel1os_path)
-    except Exception as e:
-        print(f"\n❌ Diagnostic Processing Failure: {e}")
+    all_timelines = []
+    
+    for day in sorted(day_folders):
+        print(f"=== Processing Sub-Timeline Partition: {day} ===")
+        day_path = os.path.join(base_raw_dir, day)
+        solexs_path = os.path.join(day_path, "solexs_sample.fits.gz")
+        hel1os_path = os.path.join(day_path, "hel1os_sample.fits")
+        
+        try:
+            solexs_df = extract_solexs_fits(solexs_path)
+            hel1os_df = extract_hel1os_fits(hel1os_path)
+            
+            # Align time tracking shapes on standard datetime objects, ignoring minor second rounding shifts
+            solexs_df['timestamp_round'] = solexs_df['timestamp'].dt.round('1s')
+            hel1os_df['timestamp_round'] = hel1os_df['timestamp'].dt.round('1s')
+            
+            synced_df = pd.merge(solexs_df, hel1os_df, on='timestamp_round', how='outer', suffixes=('_sol', '_hel'))
+            synced_df = synced_df.sort_values('timestamp_round').reset_index(drop=True)
+            
+            # Unify master tracking metrics
+            synced_df['timestamp'] = synced_df['timestamp_round']
+            synced_df['time_seconds'] = (synced_df['timestamp'] - synced_df['timestamp'].min()).dt.total_seconds()
+            
+            synced_df['solexs_flux'] = synced_df['solexs_flux'].interpolate(method='linear').ffill().bfill()
+            synced_df['hel1os_flux'] = synced_df['hel1os_flux'].interpolate(method='linear').ffill().bfill()
+            
+            final_day_df = synced_df[['timestamp', 'time_seconds', 'solexs_flux', 'hel1os_flux']].copy()
+            final_day_df['partition_id'] = day
+            
+            all_timelines.append(final_day_df)
+            print(f"✅ Partition {day} successfully synced with {len(final_day_df)} time steps.")
+            
+        except Exception as e:
+            print(f"❌ Critical Processing Error in {day}: {e}")
+            continue
+            
+    if len(all_timelines) == 0:
+        print("❌ No active partitions loaded. Pipeline halted.")
         return
-
-    print("\nSynchronizing dual instruments along relative second timeline tracks...")
-    
-    # Merge timelines on matching time seconds and reconstructed timestamps
-    # Rounding seconds to the nearest whole integer ensures perfect alignment points
-    solexs_df['time_seconds'] = solexs_df['time_seconds'].round()
-    hel1os_df['time_seconds'] = hel1os_df['time_seconds'].round()
-    
-    # Re-calculate clean timestamps using rounded time_seconds to prevent sub-second mismatch
-    solexs_df['timestamp'] = pd.to_datetime(solexs_df['time_seconds'], unit='s')
-    hel1os_df['timestamp'] = pd.to_datetime(hel1os_df['time_seconds'], unit='s')
-    
-    synced_df = pd.merge(solexs_df, hel1os_df, on=['time_seconds', 'timestamp'], how='outer')
-    synced_df = synced_df.sort_values('time_seconds').reset_index(drop=True)
-    
-    print("Applying astronomical interpolation to resolve sensor gaps...")
-    synced_df['solexs_flux'] = synced_df['solexs_flux'].interpolate(method='linear').ffill().bfill()
-    synced_df['hel1os_flux'] = synced_df['hel1os_flux'].interpolate(method='linear').ffill().bfill()
-    
-    # Clean up and order the final dataset rows
-    final_df = synced_df[['timestamp', 'time_seconds', 'solexs_flux', 'hel1os_flux']]
-    
-    output_path = r"C:\Users\DELL\OneDrive\Desktop\KARN\data\processed\aditya_synced_timeline.csv"
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    final_df.to_csv(output_path, index=False)
-    print(f"\n✅ Success! Clean synchronized dataset exported to: {output_path}")
-    
-    # Generate the pristine scientific plot
-    print("Generating validation plot...")
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(11, 7), sharex=True)
-    
-    ax1.plot(final_df['timestamp'], final_df['solexs_flux'], color='#F97316', label='SoLEXS (Soft X-Ray Channel)')
-    ax1.set_ylabel("Photon Counts (RATE)")
-    ax1.set_title("ADITYA-L1 CORE DUAL-CHANNEL TELEMETRY TIMELINE (AUGUST 09, 2026)")
-    ax1.grid(True, linestyle='--', alpha=0.5)
-    ax1.legend()
-    
-    ax2.plot(final_df['timestamp'], final_df['hel1os_flux'], color='#3B82F6', label='HEL1OS (Full Band 18-160 keV Hard X-Ray)')
-    ax2.set_ylabel("Photon Count Rates (CTR)")
-    ax2.set_xlabel("Observation Time (UTC Tracker)")
-    ax2.grid(True, linestyle='--', alpha=0.5)
-    ax2.legend()
-    
-    plt.tight_layout()
-    plt.savefig("aditya_validation_plot.png")
-    print("Verification plot exported successfully to root directory as aditya_validation_plot.png")
-    plt.show()
+        
+    master_timeline = pd.concat(all_timelines, axis=0).reset_index(drop=True)
+    output_path = os.path.join(processed_dir, "aditya_synced_timeline.csv")
+    os.makedirs(processed_dir, exist_ok=True)
+    master_timeline.to_csv(output_path, index=False)
+    print(f"\n🚀 Master Combined Pipeline Matrix Exported: {output_path} ({len(master_timeline)} total time steps)")
 
 if __name__ == "__main__":
     run_synchronization_pipeline()

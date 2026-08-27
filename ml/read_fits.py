@@ -1,16 +1,18 @@
 import os
 import pandas as pd
 import numpy as np
-# pyrefly: ignore [missing-import]
 from astropy.io import fits
 
 def extract_solexs_fits(file_path):
     print(f"Parsing SoLEXS Level-1 FITS: {os.path.basename(file_path)}")
     with fits.open(file_path) as hdul:
-        # Access Extension 1 ('RATE') directly
+        # Access data and header explicitly from Extension 1 (the 'RATE' BinTableHDU)
         data = hdul[1].data
+        header = hdul[1].header
         
-        # SoLEXS 'TIME' column is UNIX epoch seconds
+        # Pull observation reference time from header cards, defaulting to 2026-08-01 if blank
+        ref_date = pd.to_datetime(header.get('DATE-OBS', '2026-08-01')).normalize()
+        
         time_array = np.array(data['TIME'], dtype=float)
         counts_array = np.array(data['COUNTS'], dtype=float)
         
@@ -18,30 +20,29 @@ def extract_solexs_fits(file_path):
             'time_seconds': time_array,
             'solexs_flux': counts_array
         })
-        # Convert UNIX epoch seconds into datetime UTC timestamps matching HEL1OS
-        df['timestamp'] = pd.to_datetime(df['time_seconds'], unit='s')
         
-        return df[['time_seconds', 'timestamp', 'solexs_flux']].sort_values('time_seconds').reset_index(drop=True)
+        # Build clean absolute timestamps by adding the relative seconds to the observation epoch
+        df['timestamp'] = ref_date + pd.to_timedelta(df['time_seconds'], unit='s')
+        df['timestamp'] = df['timestamp'].dt.tz_localize(None)
+        
+        return df.sort_values('time_seconds').reset_index(drop=True)
 
 def extract_hel1os_fits(file_path):
     print(f"Parsing HEL1OS Level-1 FITS: {os.path.basename(file_path)}")
     with fits.open(file_path) as hdul:
-        # Load Extension 5 (The full broad spectrum 18 keV - 160 keV hard X-ray channel)
+        # Access Extension 5 (Broad broad-spectrum 18 keV - 160 keV hard X-ray band)
         data = hdul[5].data
         
-        # ISOT holds clean string timestamps like '2026-08-09T12:00:04'
         isot_time = np.array(data['ISOT'], dtype=str)
-        # CTR holds the clean photon count tracking rates
         ctr_rate = np.array(data['CTR'], dtype=float)
         
-        # Map into a data frame, converting string stamps into datetime objects
         df = pd.DataFrame({
             'timestamp': pd.to_datetime(isot_time),
             'hel1os_flux': ctr_rate
         })
         
         df['timestamp'] = df['timestamp'].dt.tz_localize(None)
-        # Convert timestamp to absolute UNIX epoch seconds (keeping it absolute, consistent with SoLEXS)
-        df['time_seconds'] = (df['timestamp'] - pd.Timestamp("1970-01-01")).dt.total_seconds()
+        start_time = df['timestamp'].min()
+        df['time_seconds'] = (df['timestamp'] - start_time).dt.total_seconds()
         
         return df[['time_seconds', 'timestamp', 'hel1os_flux']].sort_values('time_seconds').reset_index(drop=True)
