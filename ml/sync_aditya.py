@@ -25,15 +25,24 @@ def run_synchronization_pipeline():
             solexs_df['timestamp_round'] = solexs_df['timestamp'].dt.round('1s')
             hel1os_df['timestamp_round'] = hel1os_df['timestamp'].dt.round('1s')
             
-            synced_df = pd.merge(solexs_df, hel1os_df, on='timestamp_round', how='outer', suffixes=('_sol', '_hel'))
+            # Keep only timestamps with real measurements from both instruments.
+            # Outer merging then back-filling had created values from future HEL1OS
+            # observations for the first half of each observation period.
+            synced_df = pd.merge(solexs_df, hel1os_df, on='timestamp_round', how='inner', suffixes=('_sol', '_hel'))
             synced_df = synced_df.sort_values('timestamp_round').reset_index(drop=True)
             
             # Unify master tracking metrics
             synced_df['timestamp'] = synced_df['timestamp_round']
             synced_df['time_seconds'] = (synced_df['timestamp'] - synced_df['timestamp'].min()).dt.total_seconds()
             
-            synced_df['solexs_flux'] = synced_df['solexs_flux'].interpolate(method='linear').ffill().bfill()
-            synced_df['hel1os_flux'] = synced_df['hel1os_flux'].interpolate(method='linear').ffill().bfill()
+            if synced_df.empty:
+                raise ValueError("No exact one-second overlap between SoLEXS and HEL1OS")
+            missing = int(synced_df[['solexs_flux', 'hel1os_flux']].isna().any(axis=1).sum())
+            # Exclude only derived alignment rows lacking a source observation.
+            # This preserves a timestamp gap instead of fabricating an imputation.
+            synced_df = synced_df.dropna(subset=['solexs_flux', 'hel1os_flux']).copy()
+            if missing:
+                print(f"Dropped {missing} synchronized row(s) with missing source flux; no values were imputed.")
             
             final_day_df = synced_df[['timestamp', 'time_seconds', 'solexs_flux', 'hel1os_flux']].copy()
             final_day_df['partition_id'] = day

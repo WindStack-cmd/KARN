@@ -10,8 +10,14 @@ def extract_solexs_fits(file_path):
         data = hdul[1].data
         header = hdul[1].header
         
-        # Pull observation reference time from header cards, defaulting to 2026-08-01 if blank
-        ref_date = pd.to_datetime(header.get('DATE-OBS', '2026-08-01')).normalize()
+        # TIME is measured in seconds from FITS MJDREF, not from DATE-OBS.  These
+        # files specify MJDREF=40587 (Unix epoch), so adding TIME to DATE-OBS
+        # previously produced the erroneous year-2083 timeline.
+        mjd_ref_i = header.get('MJDREFI')
+        mjd_ref_f = header.get('MJDREFF', 0.0)
+        if mjd_ref_i is None:
+            raise ValueError("SoLEXS RATE extension has no MJDREFI timing reference")
+        mjd_ref = float(mjd_ref_i) + float(mjd_ref_f)
         
         time_array = np.array(data['TIME'], dtype=float)
         counts_array = np.array(data['COUNTS'], dtype=float)
@@ -21,9 +27,8 @@ def extract_solexs_fits(file_path):
             'solexs_flux': counts_array
         })
         
-        # Build clean absolute timestamps by adding the relative seconds to the observation epoch
-        df['timestamp'] = ref_date + pd.to_timedelta(df['time_seconds'], unit='s')
-        df['timestamp'] = df['timestamp'].dt.tz_localize(None)
+        # MJD is a defined FITS time coordinate: MJDREF + TIME / seconds-per-day.
+        df['timestamp'] = pd.to_datetime(mjd_ref + df['time_seconds'] / 86400.0, unit='D', origin='1858-11-17', utc=True).dt.tz_localize(None)
         
         return df.sort_values('time_seconds').reset_index(drop=True)
 

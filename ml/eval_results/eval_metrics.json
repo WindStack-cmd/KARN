@@ -1,0 +1,68 @@
+{
+  "real_test_data_used": true,
+  "random_test_data_used": false,
+  "synthetic_labels_used": false,
+  "train_test_leakage": "PASS",
+  "nan_count": 0,
+  "inf_count": 0,
+  "confusion_matrix": [
+    [
+      42257,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      901,
+      0,
+      0,
+      0
+    ]
+  ],
+  "accuracy": 0.9791232216506789,
+  "macro_precision": 0.24478080541266972,
+  "macro_recall": 0.25,
+  "macro_f1": 0.24736287537317803,
+  "per_class_precision": [
+    0.9791232216506789,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "per_class_recall": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "per_class_f1": [
+    0.9894515014927121,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "mae_regression": 0.23591578006744385,
+  "true_class_distribution": {
+    "0": 42257,
+    "3": 901
+  },
+  "prediction_class_distribution": {
+    "0": 43158,
+    "1": 0,
+    "2": 0,
+    "3": 0
+  },
+  "n_samples": 43158
+}

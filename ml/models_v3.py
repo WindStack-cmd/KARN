@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class KarnMultiTaskEngine(nn.Module):
-    def __init__(self, input_dim=23, hidden_dim=64, num_classes=4):
+    def __init__(self, input_dim=21, hidden_dim=64, num_classes=4):
         super(KarnMultiTaskEngine, self).__init__()
         
         # 1D-CNN Layer to capture immediate short-term feature changes
@@ -19,7 +19,7 @@ class KarnMultiTaskEngine(nn.Module):
         self.regression_head = nn.Linear(hidden_dim, 1)
         
     def forward(self, x):
-        # Input shape: [Batch, Seq_Len, Features] -> [B, 30, 23]
+        # Input shape: [Batch, Seq_Len, Features] -> [B, 30, 21]
         # Transpose for Conv1d expectation: [Batch, Features, Seq_Len]
         x_conv = x.transpose(1, 2)
         x_conv = self.relu(self.conv1d(x_conv))
@@ -40,10 +40,12 @@ class KarnMultiTaskEngine(nn.Module):
         return class_logits, time_to_peak
 
 if __name__ == "__main__":
-    # Structural verification check
+    from pathlib import Path
+    # Structural verification uses a real persisted training tensor, never random input.
     model = KarnMultiTaskEngine()
-    test_tensor = torch.randn(2, 30, 23)
-    logits, reg = model(test_tensor)
-    print("Multi-Task Verification Output shapes:")
-    print("-> Class Logits Tensor Shape:", logits.shape)
-    print("-> Regression Time-to-Peak Shape:", reg.shape)
+    tensor_path = Path(__file__).resolve().parents[1] / "data" / "processed" / "training_windows" / "X_train.pt"
+    test_tensor = torch.load(tensor_path, weights_only=True)[:2]
+    with torch.no_grad(): logits, reg = model(test_tensor)
+    if logits.shape != (2, 4) or reg.shape != (2, 1) or not torch.isfinite(logits).all() or not torch.isfinite(reg).all():
+        raise RuntimeError("Model forward verification failed")
+    print("Forward pass = PASS; Output shape = PASS; No NaN = PASS; No Inf = PASS")
