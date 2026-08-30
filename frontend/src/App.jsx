@@ -1,183 +1,79 @@
-import React, { useEffect, useState } from 'react';
-import { api } from './lib/api';
-import { supabase } from './lib/supabase';
-import AlertBanner from './components/AlertBanner';
-import MetricCards from './components/MetricCards';
-import XRayChart from './components/XRayChart';
-import ForecastBars from './components/ForecastBars';
-import PredictionTable from './components/PredictionTable';
-import { Radio } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react'
+import { Activity, AlertTriangle, BarChart3, Database, FlaskConical, Menu, Radio, Radar, Satellite, ShieldCheck, X } from 'lucide-react'
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { api } from './lib/api'
+import './App.css'
+
+const nav = [['Overview', Activity], ['Live Telemetry', Radio], ['Nowcasting', Radar], ['Flare Detection', Satellite], ['Model Evaluation', BarChart3], ['Dataset', Database], ['About / Methodology', FlaskConical]]
+const nf = new Intl.NumberFormat('en-US')
+const pct = (value) => `${(Number(value || 0) * 100).toFixed(2)}%`
+const value = (number, digits = 3) => Number(number || 0).toFixed(digits)
+const when = (time) => time ? String(time).replace('T', ' ').slice(0, 19) : 'Unavailable'
+const Card = ({ title, children, className = '' }) => <section className={`card ${className}`}><div className="card-title">{title}</div>{children}</section>
+const Metric = ({ label, value: display, hint, tone = '' }) => <div className={`metric ${tone}`}><span>{label}</span><strong>{display}</strong>{hint && <small>{hint}</small>}</div>
+const Empty = ({ children }) => <div className="empty">{children}</div>
 
 export default function App() {
-  const [liveData, setLiveData] = useState(null);
-  const [historyLogs, setHistoryLogs] = useState([]);
-  const [chartData, setChartData] = useState([]);
-
-  const fetchLiveTelemetry = async () => {
-    try {
-      console.log("Polling FastAPI /live core endpoint...");
-      const res = await api.get('/live');
-
-      if (res.data) {
-        const standardizedData = {
-          ...res.data,
-          alert_level: res.data.alert_level || 'GREEN',
-          alert_message: res.data.alert_message || 'Quiet Sun — normal solar weather',
-          predicted_class: res.data.predicted_class || 'Quiet',
-          severity_score: res.data.severity_score !== undefined ? res.data.severity_score : 0,
-          soft_flux: res.data.soft_xray_flux || res.data.current_flux_soft || 0,
-          hard_flux: res.data.hard_xray_flux || res.data.current_flux_hard || 0,
-          probabilities: res.data.probabilities || {
-            Quiet: res.data.quiet_prob !== undefined ? res.data.quiet_prob : 1.0,
-            C_Class: res.data.c_prob !== undefined ? res.data.c_prob : 0.0,
-            M_Class: res.data.m_prob !== undefined ? res.data.m_prob : 0.0,
-            X_Class: res.data.x_prob !== undefined ? res.data.x_prob : 0.0
-          }
-        };
-
-        setLiveData(standardizedData);
-
-        // Absolute Fail-Safe Chart Parser: Handles arrays, objects, lists, or constructs an active portfolio baseline trace
-        let targetWindow = res.data.flux_window || res.data.window || res.data.history;
-
-        if (!targetWindow || !Array.isArray(targetWindow) || targetWindow.length === 0) {
-          console.warn("Telemetry notice: flux_window array is empty or unpivoted from source. Executing fallback active canvas vector generator.");
-          // Generate 60 realistic historical sequence steps to populate your line charts immediately for recruiter demos
-          targetWindow = Array.from({ length: 60 }, (_, i) => {
-            const baseSoft = standardizedData.soft_flux > 1e-9 ? standardizedData.soft_flux : 4.19e-7;
-            const baseHard = standardizedData.hard_flux > 1e-9 ? standardizedData.hard_flux : 4.40e-9;
-            // Add a small scientific sine wave variance so the line looks organically alive across your viewport grid
-            return {
-              soft: baseSoft * (1 + 0.05 * Math.sin(i / 2)),
-              hard: baseHard * (1 + 0.08 * Math.cos(i / 2))
-            };
-          });
-        }
-
-        const parsedChart = targetWindow.map((w, idx) => {
-          let softVal = 1.05e-9;
-          let hardVal = 1.01e-9;
-
-          if (Array.isArray(w)) {
-            softVal = Number(w[0]) || 1.05e-9;
-            hardVal = Number(w[1]) || 1.01e-9;
-          } else if (typeof w === 'object' && w !== null) {
-            softVal = Number(w.soft_flux || w.soft || 1.05e-9);
-            hardVal = Number(w.hard_flux || w.hard || 1.01e-9);
-          } else if (typeof w === 'number' || !isNaN(Number(w))) {
-            softVal = Number(w);
-            hardVal = softVal * 0.15;
-          }
-
-          return {
-            time: `-${60 - idx}m`,
-            soft: softVal <= 1e-9 || isNaN(softVal) ? 1.05e-9 : softVal,
-            hard: hardVal <= 1e-9 || isNaN(hardVal) ? 1.01e-9 : hardVal
-          };
-        });
-
-        setChartData(parsedChart);
-      }
-    } catch (err) {
-      console.error("FastAPI Polling Error:", err);
-    }
-  };
-
-  const fetchHistoricalLogs = async () => {
-    const { data, error } = await supabase
-      .from('predictions')
-      .select('*')
-      .order('timestamp', { ascending: false })
-      .limit(10);
-    if (!error && data) {
-      const standardizedLogs = data.map(row => ({
-        ...row,
-        soft_flux: row.soft_xray_flux || 0,
-        hard_flux: row.hard_xray_flux || 0
-      }));
-      setHistoryLogs(standardizedLogs);
-    }
-  };
+  const [page, setPage] = useState('Overview')
+  const [drawer, setDrawer] = useState(false)
+  const [range, setRange] = useState(900)
+  const [sourceFilter, setSourceFilter] = useState('ALL')
+  const [selectedEvent, setSelectedEvent] = useState(null)
+  const [state, setState] = useState({ loading: true, error: '', data: {} })
 
   useEffect(() => {
-    fetchLiveTelemetry();
-    fetchHistoricalLogs();
+    let active = true
+    const get = (path) => api.get(path).then((response) => response.data)
+    Promise.all([
+      get('/health'), get('/status'), get(`/telemetry?limit=${range}`), get('/telemetry/latest'), get('/model/status'), get('/model/prediction'),
+      get('/evaluation'), get('/evaluation/confusion-matrix'), get('/evaluation/class-distribution'), get('/evaluation/temporal'), get('/evaluation/false-positives'), get('/dataset'), get('/features'),
+      get('/nowcasting/summary'), get('/nowcasting/solexs?limit=100'), get('/nowcasting/helios?limit=100'), get('/nowcasting/master?limit=100'),
+    ]).then((items) => {
+      if (!active) return
+      setState({ loading: false, error: '', data: { health:items[0], status:items[1], telemetry:items[2], latest:items[3], model:items[4], prediction:items[5], evaluation:items[6], matrix:items[7], distributions:items[8], temporal:items[9], falsePositives:items[10], dataset:items[11], features:items[12], nowcasting:items[13], nowcastSolexs:items[14], nowcastHelios:items[15], nowcastMaster:items[16] } })
+    }).catch((error) => {
+      if (active) setState({ loading: false, error: error.response?.data?.detail || 'The KARN API is unavailable. Start the backend and refresh.', data: {} })
+    })
+    return () => { active = false }
+  }, [range])
 
-    const pollTimer = setInterval(fetchLiveTelemetry, 60000);
+  const d = state.data
+  const plot = useMemo(() => (d.telemetry?.data || []).map((item) => ({ ...item, time:item.timestamp?.slice(11, 19), solexs:+item.solexs_flux, helios:+item.hel1os_flux, rate:+item.solexs_rate, anomaly:+(item.anomaly_flag || 0) })), [d.telemetry])
+  const matrix = d.matrix?.matrix || [[0, 0], [0, 0]]
+  const fp = d.falsePositives
+  const classData = useMemo(() => Object.entries(d.distributions?.splits || {}).flatMap(([split, counts]) => [{ split, type:'Quiet', count:counts['0'] }, { split, type:'Flare', count:counts['1'] }]), [d.distributions])
+  const masterEvents = useMemo(() => d.nowcastMaster?.data || [], [d.nowcastMaster])
+  const visibleEvents = useMemo(() => masterEvents.filter((event) => sourceFilter === 'ALL' || event.detection_source === sourceFilter), [masterEvents, sourceFilter])
+  const latestNowcast = masterEvents[0]
+  const limitation = <div className="science-note"><ShieldCheck size={18}/><span><b>Scientific status:</b> frozen exploratory model. Held-out X recall coexists with poor flare precision; this is not a production classifier.</span></div>
 
-    const dbSubscription = supabase
-      .channel('predictions-live-channel')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'predictions' }, (payload) => {
-        console.log("WebSocket Notice: Fresh prediction inserted into Supabase cloud!", payload.new);
+  let body
+  if (state.loading) body = <Empty>Loading real processed telemetry, frozen evaluation artifacts, and nowcasting catalogues…</Empty>
+  else if (state.error) body = <Empty><AlertTriangle size={24}/>{state.error}</Empty>
+  else if (page === 'Overview') body = <>
+    {limitation}
+    <div className="metrics-grid"><Metric label="Model status" value="Exploratory" hint="frozen temporal experiment" tone="warn"/><Metric label="Latest observation" value="Historical" hint={when(d.latest?.observation?.timestamp)}/><Metric label="Scientific features" value={d.features?.count || '—'} hint="causal engineered features"/><Metric label="Lookback" value={`${d.dataset?.sequence_length || '—'} steps`} hint="input (batch, 30, 21)"/><Metric label="Held-out X recall" value={pct(d.temporal?.x_recall)} hint={`${d.temporal?.x_detected}/${d.temporal?.x_support} X windows detected`} tone="good"/><Metric label="False positives" value={nf.format(d.matrix?.false_positive || 0)} hint="quiet test windows predicted flare" tone="bad"/></div>
+    <div className="split-grid"><Card title="Processed telemetry overview"><TelemetryChart data={plot}/></Card><Card title="Nowcasting status"><p className="lead">Independent soft and hard X-ray event detection on saved historical telemetry.</p><div className="facts"><span>Master events <b>{d.nowcasting?.counts?.master ?? '—'}</b></span><span>Latest event <b>{when(latestNowcast?.peak_time)}</b></span><span>Source <b>{latestNowcast?.detection_source || '—'}</b></span></div><p className="muted">Historical/offline catalogue. Detector categories are relative intensity, not GOES classes.</p></Card></div>
+  </>
+  else if (page === 'Live Telemetry') body = <><div className="toolbar"><div><h2>Real processed telemetry</h2><p>Historical observations only — no external/live-feed interpolation.</p></div><label>Display samples <select value={range} onChange={(event) => setRange(+event.target.value)}><option value="300">300</option><option value="900">900</option><option value="3000">3,000</option></select></label></div><div className="chart-stack"><Card title="SoLEXS and HEL1OS flux"><TelemetryChart data={plot}/></Card><Card title="SoLEXS rate and anomaly flag"><ResponsiveContainer width="100%" height={280}><LineChart data={plot}><CartesianGrid strokeDasharray="3 3" stroke="#233044"/><XAxis dataKey="time" minTickGap={50}/><YAxis/><Tooltip/><Legend/><Line dataKey="rate" name="SoLEXS rate" stroke="#c4a7ff" dot={false}/><Line dataKey="anomaly" name="Anomaly flag" stroke="#ff8b6b" dot={false}/></LineChart></ResponsiveContainer></Card></div></>
+  else if (page === 'Nowcasting') body = <>
+    <div className="nowcast-banner"><div><span className="eyebrow">KARN NOWCASTING · HISTORICAL/OFFLINE</span><h2>Independent soft and hard X-ray flare detection</h2><p>Catalogue events are generated from real processed telemetry. An algorithmic detection is distinct from a historical reference label.</p></div><div className="nowcast-alert"><b>{latestNowcast ? 'Detected catalogue event' : 'No detected catalogue event'}</b><span>{latestNowcast ? `${latestNowcast.detection_source} · peak ${when(latestNowcast.peak_time)}` : 'No active live-stream claim'}</span></div></div>
+    <div className="metrics-grid nowcast-metrics"><Metric label="SoLEXS events" value={d.nowcasting?.counts?.solexs ?? '—'} hint="independent soft X-ray detector"/><Metric label="HEL1OS events" value={d.nowcasting?.counts?.helios ?? '—'} hint="independent hard X-ray detector"/><Metric label="Master events" value={d.nowcasting?.counts?.master ?? '—'} hint="temporally associated catalogue"/><Metric label="Both-source events" value={d.nowcasting?.counts?.both ?? '—'} hint="within 300-second association"/></div>
+    <div className="split-grid"><Card title="SOLEXS NOWCAST"><NowcastSignalChart data={plot} events={d.nowcastSolexs?.data || []} signal="solexs" label="SoLEXS flux" color="#6da9ff"/><p className="muted">{d.nowcasting?.counts?.solexs} detected events using causal smoothing, a trailing low-quantile background, duration, and recovery rules.</p></Card><Card title="HEL1OS NOWCAST"><NowcastSignalChart data={plot} events={d.nowcastHelios?.data || []} signal="helios" label="HEL1OS flux" color="#ffd06b"/><p className="muted">{d.nowcasting?.counts?.helios} independently detected events. Anomaly flags are reported in each catalogue event.</p></Card></div>
+    <Card title="MASTER FLARE CATALOGUE"><div className="catalogue-toolbar"><p className="muted">Filter and select a generated event for detailed algorithmic measurements.</p><label>Source <select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}><option value="ALL">All</option><option value="SoLEXS">SoLEXS only</option><option value="HEL1OS">HEL1OS only</option><option value="BOTH">Both</option></select></label></div><div className="catalogue-table"><table><thead><tr><th>Event</th><th>Start</th><th>Peak</th><th>End</th><th>Duration</th><th>Source</th><th>Intensity category</th><th>Score</th></tr></thead><tbody>{visibleEvents.map((event) => <tr key={event.master_event_id} onClick={() => setSelectedEvent(event)}><td>{event.master_event_id}</td><td>{when(event.start_time)}</td><td>{when(event.peak_time)}</td><td>{when(event.end_time)}</td><td>{event.duration_seconds}s</td><td><span className={`source-tag ${event.detection_source.toLowerCase()}`}>{event.detection_source}</span></td><td>{event.intensity_category}</td><td>{pct(event.detection_score)}</td></tr>)}</tbody></table>{!visibleEvents.length && <Empty>No catalogue events match this filter.</Empty>}</div></Card>
+    {selectedEvent && <Card title="Selected master event"><div className="details-grid"><span>Event ID <b>{selectedEvent.master_event_id}</b></span><span>Detection source <b>{selectedEvent.detection_source}</b></span><span>Algorithmic category <b>{selectedEvent.intensity_category}</b></span><span>Detection score <b>{pct(selectedEvent.detection_score)}</b></span><span>SoLEXS peak / baseline <b>{selectedEvent.solexs_peak ?? 'Not available'} / {selectedEvent.solexs_baseline ?? 'Not available'}</b></span><span>HEL1OS peak / baseline <b>{selectedEvent.helios_peak ?? 'Not available'} / {selectedEvent.helios_baseline ?? 'Not available'}</b></span><span>Reference label <b>{selectedEvent.historical_reference_label || 'Not available'}</b></span><span>Match separation <b>{selectedEvent.matching_time_difference_seconds ?? 'Not available'}{selectedEvent.matching_time_difference_seconds === null ? '' : ' s'}</b></span></div><p className="muted">Reference label is historical context only. The detector has not independently assigned an absolute C/M/X class.</p></Card>}
+  </>
+  else if (page === 'Flare Detection') body = <><div className="prediction-card"><div><span className="eyebrow">CURRENT FROZEN-MODEL INFERENCE</span><h2 className={d.prediction?.predicted_class === 'Flare' ? 'flare' : 'quiet'}>{d.prediction?.predicted_class || 'Unavailable'}</h2><p>{when(d.prediction?.timestamp)} · latest available historical window</p></div><div className="probability"><span>P(Flare)</span><strong>{pct(d.prediction?.probabilities?.flare)}</strong><div className="meter"><i style={{ width:pct(d.prediction?.probabilities?.flare) }}/></div></div></div><div className="split-grid"><Card title="Inference provenance"><p>{d.prediction?.source}</p><div className="facts"><span>Window <b>30 × 21</b></span><span>Partition <b>{d.prediction?.window_partition}</b></span><span>Output <b>Quiet vs Flare</b></span></div><p className="muted">The binary model cannot identify M versus X. Historical source labels are context only.</p></Card><Card title="Exploratory temporal result"><p className="lead">X detected: {d.temporal?.x_detected} / {d.temporal?.x_support}</p><p>Held-out X recall: <b>{pct(d.temporal?.x_recall)}</b></p><p className="muted">This sensitivity result must be read alongside the false-positive burden.</p></Card></div></>
+  else if (page === 'Model Evaluation') body = <><div className="metrics-grid"><Metric label="Accuracy" value={pct(d.evaluation?.metrics?.accuracy)}/><Metric label="Flare precision" value={pct(d.evaluation?.metrics?.flare_precision)} tone="bad"/><Metric label="Flare recall" value={pct(d.evaluation?.metrics?.flare_recall)} tone="good"/><Metric label="Flare F1" value={pct(d.evaluation?.metrics?.flare_f1)} tone="bad"/></div><div className="split-grid"><Card title="Held-out test confusion matrix"><div className="matrix"><Matrix label="True Quiet / Pred Quiet" value={matrix[0][0]}/><Matrix label="True Quiet / Pred Flare" value={matrix[0][1]} tone="bad"/><Matrix label="True Flare / Pred Quiet" value={matrix[1][0]}/><Matrix label="True Flare / Pred Flare" value={matrix[1][1]} tone="good"/></div></Card><Card title="Class distributions"><ResponsiveContainer width="100%" height={260}><BarChart data={classData}><CartesianGrid strokeDasharray="3 3" stroke="#233044"/><XAxis dataKey="split"/><YAxis/><Tooltip/><Legend/><Bar dataKey="count" name="Windows">{classData.map((entry, index) => <Cell key={index} fill={entry.type === 'Flare' ? '#ff8b6b' : '#6da9ff'}/>)}</Bar></BarChart></ResponsiveContainer></Card></div><Card title="Nowcasting catalogue analysis"><p className="lead">{d.nowcasting?.counts?.master} artifact-backed master events were generated by independent detector rules.</p><p className="muted">No precision, recall, or F1 is reported for the nowcasting catalogues because available historical labels are not independently verified per-instrument detection ground truth. This is separate from the frozen ML evaluation above.</p></Card><Card title="False-positive analysis"><div className="facts"><span>False-positive windows <b>{nf.format(fp?.false_positive_windows || 0)}</b></span><span>Episodes <b>{fp?.episode_count || 0}</b></span><span>Episodes ≥1 minute <b>{fp?.episodes_at_least_one_minute || 0}</b></span><span>Largest episode <b>{fp?.largest_episode?.windows || '—'} windows</b></span></div><p className="muted">Largest episode: {when(fp?.largest_episode?.start)} to {when(fp?.largest_episode?.end)}. Mean P(Flare): false positives {value(fp?.probability_summary?.false_positive_mean_flare_probability, 6)}, true X {value(fp?.probability_summary?.true_x_mean_flare_probability, 6)}, true-negative Quiet {value(fp?.probability_summary?.true_negative_quiet_mean_flare_probability, 6)}.</p></Card></>
+  else if (page === 'Dataset') body = <><Card title="Dataset integrity"><div className="metrics-grid"><Metric label="Train windows" value={nf.format(d.dataset?.splits?.train?.X_shape?.[0] || 0)} hint="Quiet 35,791 · M/Flare 872"/><Metric label="Validation" value={nf.format(d.dataset?.splits?.val?.X_shape?.[0] || 0)} hint="no positive flare examples"/><Metric label="Held-out test" value={nf.format(d.dataset?.splits?.test?.X_shape?.[0] || 0)} hint="Quiet 42,257 · X/Flare 901"/><Metric label="Leakage audit" value={d.dataset?.leakage_audit || '—'} hint="raw-window overlap: zero" tone="good"/></div></Card><div className="split-grid"><Card title="Pipeline"><ol className="pipeline"><li>Raw FITS telemetry</li><li>Parsing and timestamp correction</li><li>Aditya / HEL1OS synchronization</li><li>21 causal scientific features</li><li>30-step causal windows</li><li>Chronological split and purge</li><li>Frozen temporal evaluation</li></ol></Card><Card title="Nowcasting artifacts"><p className="muted">Generated detector catalogues are separate from training labels.</p><div className="facts"><span>SoLEXS catalogue <b>{d.nowcasting?.counts?.solexs ?? '—'} events</b></span><span>HEL1OS catalogue <b>{d.nowcasting?.counts?.helios ?? '—'} events</b></span><span>Master catalogue <b>{d.nowcasting?.counts?.master ?? '—'} events</b></span></div><p className="muted">Coverage: {when(d.nowcasting?.coverage?.start)} to {when(d.nowcasting?.coverage?.end)}.</p></Card></div></>
+  else body = <><Card title="KARN methodology"><p className="lead">KARN is a space-weather and solar-flare monitoring research prototype built from real compatible Aditya+HEL1OS telemetry and associated event labels.</p><div className="split-grid inner"><div><h3>Frozen baseline controls</h3><ul><li>21 causal features with no future-information rolling calculations.</li><li>Chronological split with a 29-row purge and zero raw-window overlap.</li><li>Real-data-only policy: no synthetic telemetry, labels, or predictions.</li><li>Frozen binary classifier: Quiet versus Flare.</li></ul></div><div><h3>Nowcasting methodology</h3><ul><li>Independent SoLEXS and HEL1OS causal median smoothing and trailing background estimation.</li><li>Sustained ratio/excess candidates with minimum duration and recovery rules.</li><li>Temporal association within 300 seconds creates master events.</li><li>Relative detector categories only; no unsupported absolute GOES class assignment.</li></ul></div></div><p className="muted">KARN nowcasting is artifact-backed research software, not a production operational flare warning system. More independent paired observations and validated instrument calibration are needed.</p></Card>{limitation}</>
 
-        const augmentedNewRow = {
-          ...payload.new,
-          soft_flux: payload.new.soft_xray_flux || 0,
-          hard_flux: payload.new.hard_xray_flux || 0
-        };
-
-        setHistoryLogs((prev) => [augmentedNewRow, ...prev.slice(0, 9)]);
-
-        setLiveData((current) => ({
-          ...current,
-          ...augmentedNewRow,
-          alert_level: payload.new.alert_level || 'GREEN',
-          alert_message: payload.new.alert_message || 'Quiet Sun — normal solar weather',
-          predicted_class: payload.new.predicted_class || 'Quiet',
-          severity_score: payload.new.severity_score !== undefined ? payload.new.severity_score : 0,
-          probabilities: {
-            Quiet: payload.new.quiet_prob ?? 1.0,
-            C_Class: payload.new.c_prob ?? 0.0,
-            M_Class: payload.new.m_prob ?? 0.0,
-            X_Class: payload.new.x_prob ?? 0.0
-          }
-        }));
-      })
-      .subscribe();
-
-    return () => {
-      clearInterval(pollTimer);
-      supabase.removeChannel(dbSubscription);
-    };
-  }, []);
-
-  return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans p-6 selection:bg-orange-500/30">
-      <header className="flex justify-between items-center mb-8 border-b border-slate-900 pb-4">
-        <div>
-          <h1 className="text-2xl font-black tracking-widest text-slate-100 flex items-center gap-2">
-            PROJECT KARN <span className="text-xs font-mono font-medium px-2 py-0.5 bg-slate-800 text-slate-400 rounded-md">V2.4</span>
-          </h1>
-          <p className="text-xs text-slate-400 tracking-wider">DEEP LEARNING TELEMETRY CONTROL PANEL • ADITYA-L1 SIMULATOR</p>
-        </div>
-        <div className="flex items-center gap-2 text-xs font-mono bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
-          <Radio className="text-orange-500 animate-pulse-fast w-4 h-4" />
-          <span className="text-slate-300">LIVE CLOUD TELEMETRY SYNCED</span>
-        </div>
-      </header>
-
-      <div className="space-y-6">
-        <AlertBanner
-          alertLevel={liveData?.alert_level}
-          message={liveData?.alert_message}
-        />
-
-        <MetricCards
-          softFlux={liveData?.soft_flux}
-          hardFlux={liveData?.hard_flux}
-          severity={liveData?.severity_score}
-          predictedClass={liveData?.predicted_class}
-        />
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <XRayChart data={chartData} />
-          </div>
-          <ForecastBars probs={liveData?.probabilities} />
-        </div>
-
-        <PredictionTable logs={historyLogs} />
-      </div>
-    </div>
-  );
+  return <div className="app-shell"><aside className={drawer ? 'sidebar open' : 'sidebar'}><div className="brand"><div className="brand-mark">K</div><div><b>KARN</b><small>Space Weather Intelligence</small></div><button className="close" onClick={() => setDrawer(false)}><X size={18}/></button></div><nav>{nav.map(([name, Icon]) => <button className={page === name ? 'active' : ''} key={name} onClick={() => { setPage(name); setDrawer(false) }}><Icon size={18}/>{name}</button>)}</nav><div className="side-foot"><span className="dot"/> API {state.error ? 'unavailable' : state.loading ? 'connecting' : 'connected'}<small>Real-artifact mode</small></div></aside><main><header><button className="menu" onClick={() => setDrawer(true)}><Menu/></button><div><p className="eyebrow">RESEARCH PROTOTYPE</p><h1>{page}</h1></div><div className="status-pill"><AlertTriangle size={16}/> EXPLORATORY — GENERALIZATION LIMITED</div></header>{body}</main></div>
 }
+
+function TelemetryChart({ data }) { return data.length ? <ResponsiveContainer width="100%" height={300}><AreaChart data={data}><defs><linearGradient id="flux" x1="0" x2="0" y1="0" y2="1"><stop stopColor="#6da9ff" stopOpacity=".45"/><stop offset="1" stopColor="#6da9ff" stopOpacity="0"/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#233044"/><XAxis dataKey="time" minTickGap={50}/><YAxis/><Tooltip/><Legend/><Area dataKey="solexs" name="SoLEXS flux" stroke="#6da9ff" fill="url(#flux)" dot={false}/><Area dataKey="helios" name="HEL1OS flux" stroke="#ffd06b" fill="transparent" dot={false}/></AreaChart></ResponsiveContainer> : <Empty>No real telemetry is available for this view.</Empty> }
+function NowcastSignalChart({ data, events, signal, label, color }) {
+  const nearestTimestamp = (target) => data.reduce((nearest, row) => Math.abs(new Date(row.timestamp) - new Date(target)) < Math.abs(new Date(nearest.timestamp) - new Date(target)) ? row : nearest, data[0]).timestamp
+  return data.length ? <ResponsiveContainer width="100%" height={250}><LineChart data={data}><CartesianGrid strokeDasharray="3 3" stroke="#233044"/><XAxis dataKey="timestamp" tickFormatter={(item) => String(item).slice(5, 16)} minTickGap={75}/><YAxis/><Tooltip labelFormatter={when}/><Line dataKey={signal} name={label} stroke={color} dot={false}/>{events.map((event) => <ReferenceLine key={event.event_id} x={nearestTimestamp(event.peak_time)} stroke="#ff8b6b" strokeDasharray="3 3" label="peak"/>)}</LineChart></ResponsiveContainer> : <Empty>No real telemetry is available for this view.</Empty>
+}
+function Matrix({ label, value: display, tone = '' }) { return <div className={`matrix-cell ${tone}`}><span>{label}</span><b>{nf.format(display || 0)}</b></div> }
