@@ -1,0 +1,79 @@
+{
+  "experiment": "binary flare detection",
+  "checkpoint_path": "C:\\Users\\DELL\\OneDrive\\Desktop\\KARN\\ml\\checkpoints\\karn_binary_flare_current.pt",
+  "real_test_data_used": true,
+  "random_test_data_used": false,
+  "synthetic_labels_used": false,
+  "integrity": {
+    "nan": 0,
+    "inf": 0,
+    "leakage_audit": "PASS"
+  },
+  "binary_label_mapping": {
+    "0": "Quiet (original 0/1)",
+    "1": "Flare (original M=2 or X=3)"
+  },
+  "test_shape": [
+    43158,
+    30,
+    21
+  ],
+  "true_distribution": {
+    "0": 42257,
+    "1": 901
+  },
+  "prediction_distribution": {
+    "0": 43158,
+    "1": 0
+  },
+  "confusion_matrix": [
+    [
+      42257,
+      0
+    ],
+    [
+      901,
+      0
+    ]
+  ],
+  "accuracy": 0.9791232216506789,
+  "precision": [
+    0.9791232216506789,
+    0.0
+  ],
+  "recall": [
+    1.0,
+    0.0
+  ],
+  "f1": [
+    0.9894515014927121,
+    0.0
+  ],
+  "support": [
+    42257,
+    901
+  ],
+  "macro_precision": 0.48956161082533944,
+  "macro_recall": 0.5,
+  "macro_f1": 0.49472575074635605,
+  "flare_precision": 0.0,
+  "flare_recall": 0.0,
+  "flare_f1": 0.0,
+  "original_event_detection": {
+    "M": {
+      "support": 0,
+      "detected_as_flare": 0,
+      "flare_recall": null
+    },
+    "X": {
+      "support": 901,
+      "detected_as_flare": 0,
+      "flare_recall": 0.0
+    }
+  },
+  "regression": "not evaluated; time_to_peak_min is undefined (-1) for Quiet rows in this binary experiment",
+  "true_negative": 42257,
+  "false_positive": 0,
+  "false_negative": 901,
+  "true_positive": 0
+}

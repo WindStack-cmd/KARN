@@ -1,0 +1,14 @@
+{
+  "rows": "true [Quiet, Flare]",
+  "columns": "predicted [Quiet, Flare]",
+  "matrix": [
+    [
+      20160,
+      22097
+    ],
+    [
+      0,
+      901
+    ]
+  ]
+}

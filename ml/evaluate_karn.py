@@ -1,10 +1,48 @@
 import os
 import json
+import argparse
 import torch
 import numpy as np
 import pandas as pd
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score, precision_recall_fscore_support, mean_absolute_error
 from models_v3 import KarnMultiTaskEngine
+
+def run_binary_flare_evaluation(checkpoint_name="karn_binary_flare_current.pt", artifact_prefix="binary"):
+    """Evaluate the binary Quiet-vs-(M/X) model on persisted real test tensors."""
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    tensors, results = os.path.join(base, "data", "processed", "training_windows"), os.path.join(base, "ml", "eval_results")
+    checkpoint_path = os.path.join(base, "ml", "checkpoints", checkpoint_name)
+    paths = {"X": os.path.join(tensors, "X_test_binary.pt"), "y": os.path.join(tensors, "y_test_flare.pt"), "original": os.path.join(tensors, "y_test_original_cls_binary.pt")}
+    for path in [checkpoint_path, *paths.values()]:
+        if not os.path.exists(path): raise FileNotFoundError(f"Required binary evaluation artifact missing: {path}")
+    x = torch.load(paths["X"], weights_only=True).float(); y = torch.load(paths["y"], weights_only=True).long(); original = torch.load(paths["original"], weights_only=True).long()
+    if x.ndim != 3 or x.shape[1:] != (30, 21) or len(x) != len(y) or not torch.equal(y, (original >= 2).long()): raise ValueError("Binary test tensors fail shape/traceability audit")
+    nan, inf = int(torch.isnan(x).sum()), int(torch.isinf(x).sum())
+    if nan or inf: raise ValueError(f"Binary test feature integrity failed: NaN={nan}, Inf={inf}")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu"); checkpoint = torch.load(checkpoint_path, map_location=device)
+    if checkpoint.get("input_dim") != 21 or checkpoint.get("num_classes") != 2: raise ValueError("Binary checkpoint architecture is incompatible with binary tensors")
+    model = KarnMultiTaskEngine(21, 64, 2).to(device); model.load_state_dict(checkpoint["model_state_dict"]); model.eval()
+    prediction = []
+    with torch.no_grad():
+        for start in range(0, len(x), 256): prediction.append(model(x[start:start+256].to(device))[0].argmax(1).cpu())
+    pred = torch.cat(prediction).numpy(); truth, original_np = y.numpy(), original.numpy()
+    cm = confusion_matrix(truth, pred, labels=[0,1]); precision, recall, f1, support = precision_recall_fscore_support(truth, pred, labels=[0,1], zero_division=0)
+    macro = precision_recall_fscore_support(truth, pred, labels=[0,1], average="macro", zero_division=0)
+    event_metrics = {}
+    for token, name in ((2, "M"), (3, "X")):
+        mask = original_np == token; event_metrics[name] = {"support": int(mask.sum()), "detected_as_flare": int(pred[mask].sum()), "flare_recall": float(pred[mask].mean()) if mask.any() else None}
+    report = json.loads(open(os.path.join(tensors, "binary_validation_report.json"), encoding="utf-8").read())
+    metrics = {"experiment": "binary flare detection", "checkpoint_path": checkpoint_path, "real_test_data_used": True, "random_test_data_used": False, "synthetic_labels_used": False, "integrity": {"nan": nan, "inf": inf, "leakage_audit": report["leakage_audit"]}, "binary_label_mapping": report["label_mapping"], "test_shape": list(x.shape), "true_distribution": {"0": int((truth==0).sum()), "1": int((truth==1).sum())}, "prediction_distribution": {"0": int((pred==0).sum()), "1": int((pred==1).sum())}, "confusion_matrix": cm.tolist(), "accuracy": float(accuracy_score(truth,pred)), "precision": precision.tolist(), "recall": recall.tolist(), "f1": f1.tolist(), "support": support.tolist(), "macro_precision": float(macro[0]), "macro_recall": float(macro[1]), "macro_f1": float(macro[2]), "flare_precision": float(precision[1]), "flare_recall": float(recall[1]), "flare_f1": float(f1[1]), "original_event_detection": event_metrics, "regression": "not evaluated; time_to_peak_min is undefined (-1) for Quiet rows in this binary experiment"}
+    os.makedirs(results, exist_ok=True)
+    metrics.update({"true_negative": int(cm[0, 0]), "false_positive": int(cm[0, 1]), "false_negative": int(cm[1, 0]), "true_positive": int(cm[1, 1])})
+    with open(os.path.join(results, f"{artifact_prefix}_eval_metrics.json"), "w", encoding="utf-8") as handle: json.dump(metrics, handle, indent=2)
+    with open(os.path.join(results, f"{artifact_prefix}_confusion_matrix.json"), "w", encoding="utf-8") as handle: json.dump({"rows": "true [Quiet, Flare]", "columns": "predicted [Quiet, Flare]", "matrix": cm.tolist()}, handle, indent=2)
+    np.savez_compressed(os.path.join(results, f"{artifact_prefix}_eval_predictions.npz"), pred_flare=pred, y_flare=truth, original_class=original_np)
+    print("REAL BINARY TEST DATA USED = YES; RANDOM TEST DATA USED = NO; SYNTHETIC LABELS USED = NO")
+    print("Confusion matrix (true rows, predicted columns):\n", cm)
+    print(f"Accuracy={metrics['accuracy']:.6f}; Flare precision={metrics['flare_precision']:.6f}; Flare recall={metrics['flare_recall']:.6f}; Flare F1={metrics['flare_f1']:.6f}")
+    print(f"M detection={event_metrics['M']}; X detection={event_metrics['X']}")
+    return metrics
 
 
 def run_scientific_evaluation():
@@ -185,4 +223,6 @@ def run_scientific_evaluation():
 
 
 if __name__ == "__main__":
-    run_scientific_evaluation()
+    parser = argparse.ArgumentParser(); parser.add_argument("--binary", action="store_true"); parser.add_argument("--temporal-experiment", action="store_true"); args = parser.parse_args()
+    if args.temporal_experiment: run_binary_flare_evaluation("karn_binary_flare_temporal_experiment.pt", "temporal_binary")
+    else: (run_binary_flare_evaluation if args.binary else run_scientific_evaluation)()

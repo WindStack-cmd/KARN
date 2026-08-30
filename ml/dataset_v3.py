@@ -45,10 +45,20 @@ def compile_split_windows():
     overlap={f"{a}_{b}":len(used[a]&used[b]) for a,b in (("train","val"),("train","test"),("val","test"))}
     if any(overlap.values()): raise ValueError(f"Leakage Audit failed: {overlap}")
     report["raw_window_overlap"] = overlap; report["leakage_audit"]="PASS"; report["test_partition"] = str(timeline.partition_id.iloc[groups[-1][0]])
+    binary_report = {"feature_columns": cols, "feature_count": FEATURE_COUNT, "sequence_length": SEQ_LEN, "label_mapping": {"0": "Quiet (original 0/1)", "1": "Flare (original M=2 or X=3)"}, "split_policy": report["split_policy"], "source_label_artifacts": {split: f"y_{split}_original_cls_binary.pt" for split in arrays}, "splits": {}, "raw_window_overlap": overlap, "leakage_audit": "PASS", "test_partition": report["test_partition"]}
     OUT.mkdir(parents=True, exist_ok=True)
-    for split,(x,y,r) in arrays.items(): torch.save(torch.from_numpy(x),OUT/f"X_{split}.pt"); torch.save(torch.from_numpy(y),OUT/f"y_{split}_cls.pt"); torch.save(torch.from_numpy(r),OUT/f"y_{split}_reg.pt")
+    for split,(x,y,r) in arrays.items():
+        torch.save(torch.from_numpy(x),OUT/f"X_{split}.pt"); torch.save(torch.from_numpy(y),OUT/f"y_{split}_cls.pt"); torch.save(torch.from_numpy(r),OUT/f"y_{split}_reg.pt")
+        flare = (y >= 2).astype(np.int64)
+        if not np.isin(flare, [0, 1]).all(): raise ValueError(f"{split} binary label conversion failed")
+        torch.save(torch.from_numpy(x), OUT/f"X_{split}_binary.pt")
+        torch.save(torch.from_numpy(flare), OUT/f"y_{split}_flare.pt")
+        torch.save(torch.from_numpy(y), OUT/f"y_{split}_original_cls_binary.pt")
+        binary_report["splits"][split] = {"X_shape": list(x.shape), "y_flare_shape": list(flare.shape), "binary_distribution": {"0": int((flare == 0).sum()), "1": int((flare == 1).sum())}, "original_class_distribution": dist(y), "nan": int(np.isnan(x).sum()), "inf": int(np.isinf(x).sum()), "timestamp_start": report["splits"][split]["timestamp_start"], "timestamp_end": report["splits"][split]["timestamp_end"]}
     np.savez_compressed(OUT/"scaler.npz", center=scaler.center_, scale=scaler.scale_); (OUT/"validation_report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
+    (OUT/"binary_validation_report.json").write_text(json.dumps(binary_report,indent=2),encoding="utf-8")
     for split,d in report["splits"].items(): print(f"{split}: X={tuple(d['X_shape'])}, y_cls={tuple(d['y_cls_shape'])}, y_reg={tuple(d['y_reg_shape'])}; classes={d['class_distribution']}; NaN={d['nan']}; Inf={d['inf']}; {d['timestamp_start']} -> {d['timestamp_end']}")
+    for split,d in binary_report["splits"].items(): print(f"binary {split}: X={tuple(d['X_shape'])}, y_flare={tuple(d['y_flare_shape'])}; Quiet={d['binary_distribution']['0']}; Flare={d['binary_distribution']['1']}; NaN={d['nan']}; Inf={d['inf']}; {d['timestamp_start']} -> {d['timestamp_end']}")
     print("Leakage Audit: PASS"); return report
 
 if __name__ == "__main__": compile_split_windows()
