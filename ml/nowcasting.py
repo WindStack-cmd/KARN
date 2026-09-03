@@ -84,12 +84,27 @@ def detect_instrument(frame: pd.DataFrame, source: str, flux_column: str, params
         part = part.sort_values("timestamp").reset_index(drop=True).copy()
         raw = pd.to_numeric(part[flux_column], errors="coerce")
         valid = raw.notna() & np.isfinite(raw) & (part["quality_flag"].fillna(1) == 0)
+
+        # Time-indexed views so rolling windows span real wall-clock seconds
+        # rather than row counts — robust to sampling gaps/dropouts. min_periods
+        # is still a row-count requirement, so a window is only used once it
+        # contains enough real samples, not just enough elapsed time.
+        ts_index = pd.DatetimeIndex(part["timestamp"])
+        raw_ts = raw.copy(); raw_ts.index = ts_index
+        masked_ts = raw_ts.where(valid.to_numpy())
+
         # Causal median smoothing and low-quantile baseline avoid future data use.
-        smooth = raw.where(valid).rolling(params.smoothing_seconds, min_periods=params.smoothing_seconds).median()
-        baseline = smooth.rolling(params.baseline_seconds, min_periods=params.baseline_seconds).quantile(params.baseline_quantile)
-        global_floor = float(np.nanquantile(raw[valid], 0.10)) if valid.any() else np.nan
-        floor = max(global_floor, 1.0)
-        baseline = baseline.clip(lower=floor)
+        smooth_ts = masked_ts.rolling(f"{params.smoothing_seconds}s", min_periods=params.smoothing_seconds).median()
+        baseline_ts = smooth_ts.rolling(f"{params.baseline_seconds}s", min_periods=params.baseline_seconds).quantile(params.baseline_quantile)
+
+        # Expanding (past-and-present-only) floor, replacing the old whole-
+        # partition quantile which used future samples to set a value applied
+        # to earlier rows.
+        floor_ts = masked_ts.expanding(min_periods=1).quantile(0.10).clip(lower=1.0)
+        baseline_ts = baseline_ts.clip(lower=floor_ts)
+
+        smooth = smooth_ts.reset_index(drop=True)
+        baseline = baseline_ts.reset_index(drop=True)
         excess = smooth - baseline
         ratio = smooth / baseline
         candidate = (valid & (ratio >= params.ratio_threshold) & (excess >= params.minimum_excess)).fillna(False).to_numpy(bool)
