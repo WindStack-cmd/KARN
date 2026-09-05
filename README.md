@@ -128,6 +128,41 @@ independently verified per-instrument event-detection ground truth.
 **KARN nowcasting is an artifact-backed research implementation and not a
 production operational flare warning system.**
 
+## Phase B: causal live-nowcast replay
+
+The repository contains no genuine streaming Aditya-L1 telemetry endpoint.
+KARN therefore does **not** claim a live instrument feed. Instead, Phase B
+provides an interactive **Historical Replay** mode that sends the real saved
+synchronized observations through independent SoLEXS and HEL1OS state machines
+one timestamp at a time.
+
+```text
+one real replay observation -> causal median window -> trailing background
+-> persistence check -> NOWCAST TRIGGERED -> DEVELOPING / RECOVERING -> ENDED
+```
+
+At time `T`, smoothing uses the current and earlier observations only; the
+background excludes the current observation and contains no later samples.
+There is no backward filling, future-window smoothing, future label, future
+peak, or future end-time access. A peak is reported only as `peak_so_far` while
+an event remains active; the final peak/end are set after causal recovery.
+
+Replay API routes:
+
+- `GET /api/nowcast/live`, `/api/nowcast/status`, `/api/nowcast/events`
+- `POST /api/nowcast/replay/reset?start_index=0`
+- `POST /api/nowcast/replay/advance?steps=60`
+
+The dashboard exposes Reset, manual advance, and automatic replay controls.
+It always labels this source as **HISTORICAL REPLAY**, not a live Aditya-L1
+stream. A `BOTH` live-master association is created only when independently
+active SoLEXS and HEL1OS events trigger within the configured 300 seconds.
+
+There is no configured PRADAN/ISSDC Aditya streaming endpoint or credential in
+this repository. The replay source is `data/processed/aditya_synced_timeline.csv`,
+which is derived from the paired saved FITS observations. Legacy NOAA/GOES
+download utilities are not part of this nowcasting path.
+
 ## Project layout
 
 - `data/raw/` — paired real FITS source observations

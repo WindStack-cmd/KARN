@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from threading import Lock
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -14,8 +15,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 try:
     from .models_v3 import KarnMultiTaskEngine
+    from .live_nowcast import HistoricalReplay
 except ImportError:  # Supports `uvicorn main:app` from the ml directory.
     from models_v3 import KarnMultiTaskEngine
+    from live_nowcast import HistoricalReplay
 
 ROOT = Path(__file__).resolve().parents[1]
 PROCESSED, WINDOWS = ROOT / "data" / "processed", ROOT / "data" / "processed" / "training_windows"
@@ -27,7 +30,8 @@ PREDICTIONS_PATH, SCALER_PATH = EVAL / "temporal_binary_eval_predictions.npz", W
 NOWCASTING = PROCESSED / "nowcasting"
 
 app = FastAPI(title="KARN Research API", description="Artifact-backed interface for the frozen KARN binary flare experiment.", version="2.0.0")
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["GET"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["GET", "POST"], allow_headers=["*"])
+REPLAY_LOCK = Lock()
 
 
 def unavailable(detail: str) -> HTTPException:
@@ -55,6 +59,40 @@ def metrics() -> dict[str, Any]:
 @lru_cache(maxsize=1)
 def nowcasting_summary() -> dict[str, Any]:
     return json.loads((NOWCASTING / "nowcasting_summary.json").read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=1)
+def live_replay() -> HistoricalReplay:
+    return HistoricalReplay()
+
+
+def live_nowcast_payload(current: dict[str, Any]) -> dict[str, Any]:
+    """Add an explicit provenance contract to a causal replay status payload."""
+    solexs_observation = current.get("solexs", {}).get("observation") or {}
+    helios_observation = current.get("helios", {}).get("observation") or {}
+    active_events = [
+        event for event in (
+            current.get("solexs", {}).get("active_event"),
+            current.get("helios", {}).get("active_event"),
+            current.get("master", {}).get("active_event"),
+        ) if event is not None
+    ]
+    complete = bool(current.get("replay", {}).get("complete"))
+    return {
+        **current,
+        "source_mode": "REAL_ADITYA_L1_HISTORICAL_REPLAY",
+        "source_status": "REPLAY_COMPLETE" if complete else "REAL_ARCHIVE_AVAILABLE",
+        "connection_status": "LOCAL_REAL_TELEMETRY_AVAILABLE",
+        "latest_timestamp": current.get("replay", {}).get("timestamp"),
+        "latest_solexs_reading": solexs_observation.get("raw_value"),
+        "latest_hel1os_reading": helios_observation.get("raw_value"),
+        "solexs_state": current.get("solexs", {}).get("state"),
+        "helios_state": current.get("helios", {}).get("state"),
+        "active_events": active_events,
+        "last_update": current.get("replay", {}).get("timestamp"),
+        # Archive age is intentionally not converted to a misleading live delay.
+        "data_age_seconds": None,
+    }
 
 
 @lru_cache(maxsize=3)
@@ -169,8 +207,13 @@ def model_prediction() -> dict[str, Any]:
     try:
         data, feature_columns = telemetry_frame(), report()["feature_columns"]
         last_partition = data["partition"].dropna().iloc[-1]
-        window = data.loc[data["partition"] == last_partition].tail(30).copy()
-        if len(window) != 30 or not np.all(np.diff(window.timestamp.astype("int64") // 10**9) == 1): raise ValueError("latest processed data does not contain a contiguous 30-second window")
+        partition_data = data.loc[data["partition"] == last_partition].sort_values("timestamp").copy()
+        # The source archive may end immediately after a timestamp gap. Select
+        # the latest *real* contiguous 30-second run; never interpolate/pad it.
+        runs = partition_data.timestamp.diff().dt.total_seconds().ne(1).cumsum()
+        eligible = [group for _, group in partition_data.groupby(runs, sort=False) if len(group) >= 30]
+        if not eligible: raise ValueError("processed data has no contiguous 30-second inference window")
+        window = eligible[-1].tail(30).copy()
         raw = window[feature_columns].to_numpy(dtype=np.float32)
         if not np.isfinite(raw).all(): raise ValueError("latest real feature window contains NaN or Inf")
         scaler = np.load(SCALER_PATH); scale = np.where(scaler["scale"] == 0, 1.0, scaler["scale"])
@@ -280,4 +323,52 @@ def nowcasting_event(event_id: str) -> dict[str, Any]:
                 return {"catalogue": name, "event": {key: serialise(value) for key, value in found.iloc[0].to_dict().items()}, "classification_note": "Detector source/intensity is algorithmic. Historical reference label is context only."}
         raise HTTPException(status_code=404, detail="Nowcasting event not found")
     except HTTPException: raise
+    except Exception as exc: raise unavailable(str(exc)) from exc
+
+
+@app.get("/api/nowcast/live")
+def nowcast_live() -> dict[str, Any]:
+    """Current causal replay state; this endpoint does not advance time."""
+    try:
+        with REPLAY_LOCK:
+            return live_nowcast_payload(live_replay().status())
+    except Exception as exc: raise unavailable(str(exc)) from exc
+
+
+@app.get("/api/nowcast/status")
+def nowcast_status() -> dict[str, Any]:
+    try:
+        with REPLAY_LOCK:
+            current = live_nowcast_payload(live_replay().status())
+        return {"mode": current["mode"], "live_aditya_feed": False, "state": current["master"]["state"], "source": current["master"]["source"], "replay": current["replay"], "message": current["message"], "source_mode": current["source_mode"], "source_status": current["source_status"], "connection_status": current["connection_status"], "latest_timestamp": current["latest_timestamp"]}
+    except Exception as exc: raise unavailable(str(exc)) from exc
+
+
+@app.post("/api/nowcast/replay/reset")
+def nowcast_replay_reset(start_index: int = Query(0, ge=0)) -> dict[str, Any]:
+    try:
+        with REPLAY_LOCK:
+            replay = live_replay()
+            replay.reset(start_index)
+            return live_nowcast_payload(replay.status())
+    except ValueError as exc: raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc: raise unavailable(str(exc)) from exc
+
+
+@app.post("/api/nowcast/replay/advance")
+def nowcast_replay_advance(steps: int = Query(1, ge=1, le=3600)) -> dict[str, Any]:
+    """Causally consume the next real replay observations. No rows are skipped."""
+    try:
+        with REPLAY_LOCK:
+            return live_nowcast_payload(live_replay().advance(steps))
+    except ValueError as exc: raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc: raise unavailable(str(exc)) from exc
+
+
+@app.get("/api/nowcast/events")
+def nowcast_events() -> dict[str, Any]:
+    try:
+        with REPLAY_LOCK:
+            replay = live_replay()
+            return {"mode": "HISTORICAL_REPLAY", "source_mode": "REAL_ADITYA_L1_HISTORICAL_REPLAY", "solexs": {"active": replay.solexs.active_event, "completed": replay.solexs.completed_events}, "helios": {"active": replay.helios.active_event, "completed": replay.helios.completed_events}, "master": {"active": replay.status()["master"]["active_event"], "completed": replay.master_events}}
     except Exception as exc: raise unavailable(str(exc)) from exc

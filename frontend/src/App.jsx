@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Activity, AlertTriangle, BarChart3, Database, FlaskConical, Menu, Radio, Radar, Satellite, ShieldCheck, X } from 'lucide-react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api } from './lib/api'
@@ -19,23 +19,49 @@ export default function App() {
   const [range, setRange] = useState(900)
   const [sourceFilter, setSourceFilter] = useState('ALL')
   const [selectedEvent, setSelectedEvent] = useState(null)
+  const [liveReplay, setLiveReplay] = useState(null)
+  const [replaying, setReplaying] = useState(false)
+  const [liveError, setLiveError] = useState('')
   const [state, setState] = useState({ loading: true, error: '', data: {} })
 
   useEffect(() => {
     let active = true
     const get = (path) => api.get(path).then((response) => response.data)
-    Promise.all([
+    Promise.allSettled([
       get('/health'), get('/status'), get(`/telemetry?limit=${range}`), get('/telemetry/latest'), get('/model/status'), get('/model/prediction'),
       get('/evaluation'), get('/evaluation/confusion-matrix'), get('/evaluation/class-distribution'), get('/evaluation/temporal'), get('/evaluation/false-positives'), get('/dataset'), get('/features'),
-      get('/nowcasting/summary'), get('/nowcasting/solexs?limit=100'), get('/nowcasting/helios?limit=100'), get('/nowcasting/master?limit=100'),
-    ]).then((items) => {
+      get('/nowcasting/summary'), get('/nowcasting/solexs?limit=100'), get('/nowcasting/helios?limit=100'), get('/nowcasting/master?limit=100'), get('/nowcast/live'),
+    ]).then((settled) => {
       if (!active) return
+      const items = settled.map((item) => item.status === 'fulfilled' ? item.value : null)
+      if (!items[0]) {
+        setState({ loading: false, error: 'The KARN API is unavailable. Start the backend and refresh.', data: {} })
+        return
+      }
       setState({ loading: false, error: '', data: { health:items[0], status:items[1], telemetry:items[2], latest:items[3], model:items[4], prediction:items[5], evaluation:items[6], matrix:items[7], distributions:items[8], temporal:items[9], falsePositives:items[10], dataset:items[11], features:items[12], nowcasting:items[13], nowcastSolexs:items[14], nowcastHelios:items[15], nowcastMaster:items[16] } })
+      setLiveReplay(items[17])
     }).catch((error) => {
       if (active) setState({ loading: false, error: error.response?.data?.detail || 'The KARN API is unavailable. Start the backend and refresh.', data: {} })
     })
     return () => { active = false }
   }, [range])
+
+  const replay = useCallback(async (path) => {
+    try { setLiveError(''); setLiveReplay((await api.post(path)).data) }
+    catch (error) { setLiveError(error.response?.data?.detail || 'Replay control is unavailable.') }
+  }, [])
+  useEffect(() => {
+    if (page !== 'Nowcasting' || !replaying) return undefined
+    const timer = setInterval(() => replay('/nowcast/replay/advance?steps=30'), 1000)
+    return () => clearInterval(timer)
+  }, [page, replay, replaying])
+  useEffect(() => {
+    if (page !== 'Nowcasting' || replaying) return undefined
+    const refresh = async () => { try { setLiveReplay((await api.get('/nowcast/live')).data) } catch { /* the control panel shows the existing status */ } }
+    refresh()
+    const timer = setInterval(refresh, 3000)
+    return () => clearInterval(timer)
+  }, [page, replaying])
 
   const d = state.data
   const plot = useMemo(() => (d.telemetry?.data || []).map((item) => ({ ...item, time:item.timestamp?.slice(11, 19), solexs:+item.solexs_flux, helios:+item.hel1os_flux, rate:+item.solexs_rate, anomaly:+(item.anomaly_flag || 0) })), [d.telemetry])
@@ -45,6 +71,11 @@ export default function App() {
   const masterEvents = useMemo(() => d.nowcastMaster?.data || [], [d.nowcastMaster])
   const visibleEvents = useMemo(() => masterEvents.filter((event) => sourceFilter === 'ALL' || event.detection_source === sourceFilter), [masterEvents, sourceFilter])
   const latestNowcast = masterEvents[0]
+  const liveChart = useMemo(() => (liveReplay?.recent_telemetry || []).map((item) => ({ ...item, time:String(item.timestamp).slice(11, 19) })), [liveReplay])
+  const latestSoLEXS = liveReplay?.latest_solexs_reading ?? liveReplay?.solexs?.observation?.raw_value
+  const latestHEL1OS = liveReplay?.latest_hel1os_reading ?? liveReplay?.helios?.observation?.raw_value
+  const sourceStatus = liveReplay?.source_status || (liveReplay?.replay?.complete ? 'REPLAY_COMPLETE' : liveReplay?.replay ? 'REAL_ARCHIVE_AVAILABLE' : null)
+  const connectionStatus = liveReplay?.connection_status || (liveReplay?.replay ? 'LOCAL_REAL_TELEMETRY_AVAILABLE' : null)
   const limitation = <div className="science-note"><ShieldCheck size={18}/><span><b>Scientific status:</b> frozen exploratory model. Held-out X recall coexists with poor flare precision; this is not a production classifier.</span></div>
 
   let body
@@ -57,7 +88,11 @@ export default function App() {
   </>
   else if (page === 'Live Telemetry') body = <><div className="toolbar"><div><h2>Real processed telemetry</h2><p>Historical observations only — no external/live-feed interpolation.</p></div><label>Display samples <select value={range} onChange={(event) => setRange(+event.target.value)}><option value="300">300</option><option value="900">900</option><option value="3000">3,000</option></select></label></div><div className="chart-stack"><Card title="SoLEXS and HEL1OS flux"><TelemetryChart data={plot}/></Card><Card title="SoLEXS rate and anomaly flag"><ResponsiveContainer width="100%" height={280}><LineChart data={plot}><CartesianGrid strokeDasharray="3 3" stroke="#233044"/><XAxis dataKey="time" minTickGap={50}/><YAxis/><Tooltip/><Legend/><Line dataKey="rate" name="SoLEXS rate" stroke="#c4a7ff" dot={false}/><Line dataKey="anomaly" name="Anomaly flag" stroke="#ff8b6b" dot={false}/></LineChart></ResponsiveContainer></Card></div></>
   else if (page === 'Nowcasting') body = <>
-    <div className="nowcast-banner"><div><span className="eyebrow">KARN NOWCASTING · HISTORICAL/OFFLINE</span><h2>Independent soft and hard X-ray flare detection</h2><p>Catalogue events are generated from real processed telemetry. An algorithmic detection is distinct from a historical reference label.</p></div><div className="nowcast-alert"><b>{latestNowcast ? 'Detected catalogue event' : 'No detected catalogue event'}</b><span>{latestNowcast ? `${latestNowcast.detection_source} · peak ${when(latestNowcast.peak_time)}` : 'No active live-stream claim'}</span></div></div>
+    <div className="nowcast-banner"><div><span className="eyebrow">KARN LIVE NOWCAST · HISTORICAL REPLAY</span><h2>Sequential causal detection on real saved telemetry</h2><p>This is not a live Aditya-L1 feed. The replay feeds real observations in timestamp order; each decision only uses current and earlier observations.</p></div><div className={`nowcast-alert ${liveReplay?.master?.state !== 'NORMAL' ? 'triggered' : ''}`}><b>{liveReplay?.master?.state || 'Waiting for telemetry'}</b><span>{liveReplay?.master?.source ? `Source: ${liveReplay.master.source}` : liveReplay?.message || 'Historical replay is ready.'}</span></div></div>
+    <Card title="NOWCASTING MODE"><div className="replay-controls"><div><b>Mode: {liveReplay?.source_mode || 'REAL_ADITYA_L1_HISTORICAL_REPLAY'}</b><p className="muted">{liveReplay?.latest_timestamp ? `Current replay timestamp: ${when(liveReplay.latest_timestamp)}` : 'Replay begins with a causal background warm-up.'} · {liveReplay?.replay?.cursor ?? 0}/{liveReplay?.replay?.total_observations ?? '—'} observations consumed.</p><div className="facts"><span>Connection/data source <b>REAL ADITYA-L1 HISTORICAL REPLAY</b></span><span>Latest SoLEXS <b>{latestSoLEXS ?? '—'}</b></span><span>Latest HEL1OS <b>{latestHEL1OS ?? '—'}</b></span><span>Source status <b>{sourceStatus || '—'}</b></span><span>Connection <b>{connectionStatus || '—'}</b></span></div></div><div className="control-buttons"><button onClick={() => { setReplaying(false); replay('/nowcast/replay/reset?start_index=0') }}>RESET</button><button onClick={() => { setReplaying(true); replay('/nowcast/replay/advance?steps=1') }}>START</button><button onClick={() => setReplaying(false)}>PAUSE</button><button onClick={() => replay('/nowcast/replay/advance?steps=60')}>ADVANCE 60 SECONDS</button><button className={replaying ? 'active-control' : ''} onClick={() => setReplaying(!replaying)}>{replaying ? 'PAUSE AUTO REPLAY' : 'AUTO REPLAY'}</button></div></div>{liveError && <p className="inline-error">{liveError}</p>}</Card>
+    <div className="metrics-grid nowcast-metrics"><Metric label="SoLEXS state" value={liveReplay?.solexs?.state || '—'} hint={liveReplay?.solexs?.active_event ? `triggered ${when(liveReplay.solexs.active_event.trigger_time)}` : 'independent causal detector'}/><Metric label="HEL1OS state" value={liveReplay?.helios?.state || '—'} hint={liveReplay?.helios?.active_event ? `triggered ${when(liveReplay.helios.active_event.trigger_time)}` : 'independent causal detector'}/><Metric label="Master state" value={liveReplay?.master?.state || '—'} hint={liveReplay?.master?.source || 'no active source'}/><Metric label="Replay data" value={liveReplay?.replay?.complete ? 'Complete' : 'Streaming'} hint="real historical observations"/></div>
+    <div className="split-grid"><Card title="LIVE X-RAY REPLAY"><LiveReplayChart data={liveChart}/><p className="muted">Lines show current replay telemetry, causal background, and the current detector threshold. No future peak or end is supplied while an event is developing.</p></Card><Card title="LIVE NOWCAST ALERT"><LiveAlert replay={liveReplay}/></Card></div>
+    <div className="section-divider"><span>HISTORICAL / OFFLINE ANALYSIS</span></div>
     <div className="metrics-grid nowcast-metrics"><Metric label="SoLEXS events" value={d.nowcasting?.counts?.solexs ?? '—'} hint="independent soft X-ray detector"/><Metric label="HEL1OS events" value={d.nowcasting?.counts?.helios ?? '—'} hint="independent hard X-ray detector"/><Metric label="Master events" value={d.nowcasting?.counts?.master ?? '—'} hint="temporally associated catalogue"/><Metric label="Both-source events" value={d.nowcasting?.counts?.both ?? '—'} hint="within 300-second association"/></div>
     <div className="split-grid"><Card title="SOLEXS NOWCAST"><NowcastSignalChart data={plot} events={d.nowcastSolexs?.data || []} signal="solexs" label="SoLEXS flux" color="#6da9ff"/><p className="muted">{d.nowcasting?.counts?.solexs} detected events using causal smoothing, a trailing low-quantile background, duration, and recovery rules.</p></Card><Card title="HEL1OS NOWCAST"><NowcastSignalChart data={plot} events={d.nowcastHelios?.data || []} signal="helios" label="HEL1OS flux" color="#ffd06b"/><p className="muted">{d.nowcasting?.counts?.helios} independently detected events. Anomaly flags are reported in each catalogue event.</p></Card></div>
     <Card title="MASTER FLARE CATALOGUE"><div className="catalogue-toolbar"><p className="muted">Filter and select a generated event for detailed algorithmic measurements.</p><label>Source <select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}><option value="ALL">All</option><option value="SoLEXS">SoLEXS only</option><option value="HEL1OS">HEL1OS only</option><option value="BOTH">Both</option></select></label></div><div className="catalogue-table"><table><thead><tr><th>Event</th><th>Start</th><th>Peak</th><th>End</th><th>Duration</th><th>Source</th><th>Intensity category</th><th>Score</th></tr></thead><tbody>{visibleEvents.map((event) => <tr key={event.master_event_id} onClick={() => setSelectedEvent(event)}><td>{event.master_event_id}</td><td>{when(event.start_time)}</td><td>{when(event.peak_time)}</td><td>{when(event.end_time)}</td><td>{event.duration_seconds}s</td><td><span className={`source-tag ${event.detection_source.toLowerCase()}`}>{event.detection_source}</span></td><td>{event.intensity_category}</td><td>{pct(event.detection_score)}</td></tr>)}</tbody></table>{!visibleEvents.length && <Empty>No catalogue events match this filter.</Empty>}</div></Card>
@@ -76,4 +111,6 @@ function NowcastSignalChart({ data, events, signal, label, color }) {
   const nearestTimestamp = (target) => data.reduce((nearest, row) => Math.abs(new Date(row.timestamp) - new Date(target)) < Math.abs(new Date(nearest.timestamp) - new Date(target)) ? row : nearest, data[0]).timestamp
   return data.length ? <ResponsiveContainer width="100%" height={250}><LineChart data={data}><CartesianGrid strokeDasharray="3 3" stroke="#233044"/><XAxis dataKey="timestamp" tickFormatter={(item) => String(item).slice(5, 16)} minTickGap={75}/><YAxis/><Tooltip labelFormatter={when}/><Line dataKey={signal} name={label} stroke={color} dot={false}/>{events.map((event) => <ReferenceLine key={event.event_id} x={nearestTimestamp(event.peak_time)} stroke="#ff8b6b" strokeDasharray="3 3" label="peak"/>)}</LineChart></ResponsiveContainer> : <Empty>No real telemetry is available for this view.</Empty>
 }
+function LiveReplayChart({ data }) { return data.length ? <ResponsiveContainer width="100%" height={270}><LineChart data={data}><CartesianGrid strokeDasharray="3 3" stroke="#233044"/><XAxis dataKey="time" minTickGap={55}/><YAxis/><Tooltip labelFormatter={when}/><Legend/><Line dataKey="solexs_flux" name="SoLEXS flux" stroke="#6da9ff" dot={false}/><Line dataKey="solexs_background" name="SoLEXS background" stroke="#6da9ff" strokeDasharray="4 4" dot={false}/><Line dataKey="solexs_threshold" name="SoLEXS threshold" stroke="#ff8b6b" strokeDasharray="2 4" dot={false}/><Line dataKey="hel1os_flux" name="HEL1OS flux" stroke="#ffd06b" dot={false}/><Line dataKey="helios_background" name="HEL1OS background" stroke="#ffd06b" strokeDasharray="4 4" dot={false}/><Line dataKey="helios_threshold" name="HEL1OS threshold" stroke="#f6a8ff" strokeDasharray="2 4" dot={false}/></LineChart></ResponsiveContainer> : <Empty>Waiting for replay telemetry…</Empty> }
+function LiveAlert({ replay }) { const master = replay?.master; const active = replay?.solexs?.active_event || replay?.helios?.active_event; return <div className={`live-alert ${master?.state !== 'NORMAL' ? 'active' : ''}`}><b>{master?.state === 'NORMAL' ? 'No active flare nowcast' : master?.state || 'Waiting for telemetry'}</b><p>{master?.source ? `Detection source: ${master.source}` : 'No causal trigger has occurred in the replay yet.'}</p>{active ? <div className="facts"><span>Trigger time <b>{when(active.trigger_time)}</b></span><span>Peak so far <b>{value(active.peak_so_far)}</b></span><span>Duration so far <b>{active.duration_so_far_seconds || 0} s</b></span><span>Confidence <b>{pct(active.confidence)}</b></span></div> : <p className="muted">Peak and end are intentionally unavailable until a real replay event develops and recovers.</p>}<p className="muted">GOES class: not calibrated.</p></div> }
 function Matrix({ label, value: display, tone = '' }) { return <div className={`matrix-cell ${tone}`}><span>{label}</span><b>{nf.format(display || 0)}</b></div> }
