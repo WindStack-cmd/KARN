@@ -53,7 +53,7 @@
     0.0,
     0.0
   ],
-  "mae_regression": 0.23591578006744385,
+  "mae_regression": 0.23014427721500397,
   "true_class_distribution": {
     "0": 42257,
     "3": 901
