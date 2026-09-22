@@ -7,7 +7,6 @@ chronological windows, frozen model inference, and honest temporal evaluation.
 
 ## Scientific status
 
-
 **Exploratory — generalization limited. Not a production-ready flare
 classifier.** The frozen temporal experiment trained on real M-flare windows
 from the earlier observation period and evaluated once on a later, untouched
