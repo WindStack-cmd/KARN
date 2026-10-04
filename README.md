@@ -1,4 +1,4 @@
-# KARN
+# solar flare prediction 
 
 KARN is a research prototype for analysing compatible Aditya/HEL1OS and
 SoLEXS telemetry with a binary solar-flare detector. The project presents the
