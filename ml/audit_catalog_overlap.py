@@ -4,17 +4,18 @@ import pandas as pd
 
 def run_scientific_audit():
     features_path = r"C:\Users\DELL\OneDrive\Desktop\KARN\data\processed\aditya_features.csv"
-    catalog_path = r"C:\Users\DELL\OneDrive\Desktop\KARN\data\processed\full_catalog.csv"
+    catalog_path = r"C:\Users\DELL\OneDrive\Desktop\KARN\data\official\noaa_ncei_goes_flare_report_2026.csv"
 
     feat_df = pd.read_csv(features_path)
-    feat_df['timestamp'] = pd.to_datetime(feat_df['timestamp'], errors='coerce')
+    feat_df['timestamp'] = pd.to_datetime(feat_df['timestamp'], errors='coerce', utc=True)
     telemetry_start = feat_df['timestamp'].min()
     telemetry_end = feat_df['timestamp'].max()
 
     cat_df = pd.read_csv(catalog_path)
-    cat_df['start_time'] = pd.to_datetime(cat_df['start_time'], errors='coerce')
-    cat_df['peak_time'] = pd.to_datetime(cat_df['peak_time'], errors='coerce')
-    cat_df = cat_df[['event_id', 'start_time', 'peak_time', 'flare_class']].dropna(subset=['start_time', 'peak_time']).copy()
+    cat_df['start_time'] = pd.to_datetime(cat_df['start_time'], errors='coerce', utc=True)
+    cat_df['peak_time'] = pd.to_datetime(cat_df['time'], errors='coerce', utc=True)
+    cat_df = cat_df[['flare_id', 'start_time', 'peak_time', 'flare_class']].dropna(subset=['start_time', 'peak_time']).copy()
+    cat_df = cat_df.rename(columns={'flare_id': 'event_id'})
 
     rows = []
     for _, row in cat_df.iterrows():

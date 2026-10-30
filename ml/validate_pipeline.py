@@ -41,7 +41,10 @@ def test_dataset_integrity():
     features = pd.read_csv(FEATURES_PATH)
     labels = pd.read_csv(LABELS_PATH)
 
-    feature_cols = [c for c in features.columns if c not in ["timestamp", "time_seconds"]]
+    # anomaly_flag and quality_flag are metadata used by the gate/API, not
+    # model input features. dataset_v3.py deliberately excludes them when
+    # creating the persisted 21-feature windows.
+    feature_cols = [c for c in features.columns if c not in ["timestamp", "time_seconds", "anomaly_flag", "quality_flag"]]
     expected_feature_dim = len(feature_cols)
     expected_window_shape = (30, expected_feature_dim)
 
@@ -283,7 +286,7 @@ def run_all_validation():
     print("==================================================")
     
     step1 = test_dataset_integrity()
-    step2 = test_baseline_models()
+    step2 = test_baseline_models() if step1 else False
     step3 = test_sensor_fusion_gate()
     
     print("\n==================================================")
