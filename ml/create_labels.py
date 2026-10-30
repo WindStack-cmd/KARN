@@ -32,11 +32,11 @@ def generate_honest_labels():
         p_time = row[peak_col]
         f_cls = str(row[class_col]).upper().strip()
         
-      token = class_map.get(f_cls[:1], 0) if f_cls else 0
+        token = class_map.get(f_cls[:1], 0) if f_cls else 0
         if f_cls and f_cls[:1] not in class_map:
-        print(f"⚠️ Unrecognized flare_class value: {f_cls!r} — defaulting to token 0")
+            print(f"⚠️ Unrecognized flare_class value: {f_cls!r} — defaulting to token 0")
         
-            if token == 0:
+        if token == 0:
             continue
             
         mask = (df_feat['timestamp'] >= s_time) & (df_feat['timestamp'] <= p_time)
