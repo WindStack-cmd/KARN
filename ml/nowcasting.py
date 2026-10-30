@@ -43,7 +43,7 @@ def load_telemetry() -> pd.DataFrame:
     features = pd.read_csv(PROCESSED / "aditya_features.csv", usecols=["timestamp", "anomaly_flag", "quality_flag"])
     labels = pd.read_csv(PROCESSED / "aditya_labels.csv", usecols=["timestamp", "flare_class_token"])
     for frame in (timeline, features, labels):
-        frame["timestamp"] = pd.to_datetime(frame["timestamp"], errors="raise")
+        frame["timestamp"] = pd.to_datetime(frame["timestamp"], errors="raise", utc=True)
     frame = timeline.merge(features, on="timestamp", how="left").merge(labels, on="timestamp", how="left")
     return frame.sort_values(["partition_id", "timestamp"]).reset_index(drop=True)
 

@@ -1,29 +1,131 @@
 {
     "logistic_regression": {
         "statistical": {
-            "training_time_seconds": 0.011163473129272461,
+            "training_time_seconds": 1.350217580795288,
             "model_configuration": "LogisticRegression(max_iter=1000, random_state=42)",
             "train_metrics": {
-                "num_samples": 906,
+                "num_samples": 36663,
                 "classes_observed": [
                     0,
-                    1
+                    2
                 ],
                 "class_names_observed": [
                     "Quiet",
-                    "C-class"
+                    "M-class"
                 ],
-                "accuracy": 0.9988962472406181,
+                "accuracy": 0.9908899980907182,
                 "confusion_matrix": [
                     [
-                        874,
-                        1,
+                        35730,
+                        0,
+                        61,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        273,
+                        0,
+                        599,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "class_metrics": {
+                    "Quiet": {
+                        "is_scientific_meaningful": true,
+                        "meaningful_reason": "Valid",
+                        "precision": 0.9924172985584535,
+                        "recall": 0.998295660920343,
+                        "f1_score": 0.995347800651865,
+                        "support": 35791
+                    },
+                    "C-class": {
+                        "is_scientific_meaningful": false,
+                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
+                        "precision": "not meaningful/undefined",
+                        "recall": "not meaningful/undefined",
+                        "f1_score": "not meaningful/undefined",
+                        "support": 0
+                    },
+                    "M-class": {
+                        "is_scientific_meaningful": true,
+                        "meaningful_reason": "Valid",
+                        "precision": 0.9075757575757576,
+                        "recall": 0.6869266055045872,
+                        "f1_score": 0.7819843342036553,
+                        "support": 872
+                    },
+                    "X-class": {
+                        "is_scientific_meaningful": false,
+                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
+                        "precision": "not meaningful/undefined",
+                        "recall": "not meaningful/undefined",
+                        "f1_score": "not meaningful/undefined",
+                        "support": 0
+                    }
+                },
+                "sample_probabilities": [
+                    [
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0
+                    ]
+                ]
+            },
+            "validation_metrics": {
+                "num_samples": 6441,
+                "classes_observed": [
+                    0
+                ],
+                "class_names_observed": [
+                    "Quiet"
+                ],
+                "accuracy": 1.0,
+                "confusion_matrix": [
+                    [
+                        6441,
+                        0,
                         0,
                         0
                     ],
                     [
                         0,
-                        31,
+                        0,
                         0,
                         0
                     ],
@@ -45,115 +147,19 @@
                         "is_scientific_meaningful": true,
                         "meaningful_reason": "Valid",
                         "precision": 1.0,
-                        "recall": 0.9988571428571429,
-                        "f1_score": 0.9994282447112636,
-                        "support": 875
+                        "recall": 1.0,
+                        "f1_score": 1.0,
+                        "support": 6441
                     },
                     "C-class": {
-                        "is_scientific_meaningful": true,
-                        "meaningful_reason": "Valid",
-                        "precision": 0.96875,
-                        "recall": 1.0,
-                        "f1_score": 0.9841269841269841,
-                        "support": 31
+                        "is_scientific_meaningful": false,
+                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
+                        "precision": "not meaningful/undefined",
+                        "recall": "not meaningful/undefined",
+                        "f1_score": "not meaningful/undefined",
+                        "support": 0
                     },
                     "M-class": {
-                        "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
-                        "precision": "not meaningful/undefined",
-                        "recall": "not meaningful/undefined",
-                        "f1_score": "not meaningful/undefined",
-                        "support": 0
-                    },
-                    "X-class": {
-                        "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
-                        "precision": "not meaningful/undefined",
-                        "recall": "not meaningful/undefined",
-                        "f1_score": "not meaningful/undefined",
-                        "support": 0
-                    }
-                },
-                "sample_probabilities": [
-                    [
-                        0.999999993835423,
-                        6.164576981850006e-09,
-                        0.0,
-                        0.0
-                    ],
-                    [
-                        0.9999999931942058,
-                        6.805794141867314e-09,
-                        0.0,
-                        0.0
-                    ],
-                    [
-                        0.9999999915484304,
-                        8.451569585766985e-09,
-                        0.0,
-                        0.0
-                    ],
-                    [
-                        0.9999999882503304,
-                        1.1749669615610359e-08,
-                        0.0,
-                        0.0
-                    ],
-                    [
-                        0.9999999874048904,
-                        1.259510965517975e-08,
-                        0.0,
-                        0.0
-                    ]
-                ]
-            },
-            "validation_metrics": {
-                "num_samples": 258,
-                "classes_observed": [
-                    0,
-                    2
-                ],
-                "class_names_observed": [
-                    "Quiet",
-                    "M-class"
-                ],
-                "accuracy": 0.7674418604651163,
-                "confusion_matrix": [
-                    [
-                        198,
-                        29,
-                        0,
-                        0
-                    ],
-                    [
-                        0,
-                        0,
-                        0,
-                        0
-                    ],
-                    [
-                        31,
-                        0,
-                        0,
-                        0
-                    ],
-                    [
-                        0,
-                        0,
-                        0,
-                        0
-                    ]
-                ],
-                "class_metrics": {
-                    "Quiet": {
-                        "is_scientific_meaningful": true,
-                        "meaningful_reason": "Valid",
-                        "precision": 0.8646288209606987,
-                        "recall": 0.8722466960352423,
-                        "f1_score": 0.868421052631579,
-                        "support": 227
-                    },
-                    "C-class": {
                         "is_scientific_meaningful": false,
                         "meaningful_reason": "Class was not present in this split's actual ground-truth label distribution.",
                         "precision": "not meaningful/undefined",
@@ -161,14 +167,6 @@
                         "f1_score": "not meaningful/undefined",
                         "support": 0
                     },
-                    "M-class": {
-                        "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
-                        "precision": "not meaningful/undefined",
-                        "recall": "not meaningful/undefined",
-                        "f1_score": "not meaningful/undefined",
-                        "support": 31
-                    },
                     "X-class": {
                         "is_scientific_meaningful": false,
                         "meaningful_reason": "Class was not present in training data; model cannot predict it.",
@@ -180,39 +178,39 @@
                 },
                 "sample_probabilities": [
                     [
-                        0.9999999999975977,
-                        2.4022987472546688e-12,
+                        1.0,
                         0.0,
+                        9.950936602498572e-11,
                         0.0
                     ],
                     [
-                        0.9999999999996109,
-                        3.891691154197329e-13,
+                        1.0,
                         0.0,
+                        8.153038660863032e-11,
                         0.0
                     ],
                     [
-                        0.999999999999942,
-                        5.796405484374181e-14,
+                        1.0,
                         0.0,
+                        7.048898964523431e-11,
                         0.0
                     ],
                     [
-                        0.9999999999999779,
-                        2.2112410464011646e-14,
+                        1.0,
                         0.0,
+                        9.173528603412251e-11,
                         0.0
                     ],
                     [
-                        0.9999999999999949,
-                        5.063521541281121e-15,
+                        1.0,
                         0.0,
+                        5.949948173045172e-11,
                         0.0
                     ]
                 ]
             },
             "test_metrics": {
-                "num_samples": 186,
+                "num_samples": 43158,
                 "classes_observed": [
                     0,
                     3
@@ -221,12 +219,12 @@
                     "Quiet",
                     "X-class"
                 ],
-                "accuracy": 0.3118279569892473,
+                "accuracy": 0.973376894202697,
                 "confusion_matrix": [
                     [
-                        58,
-                        97,
+                        42009,
                         0,
+                        248,
                         0
                     ],
                     [
@@ -242,8 +240,8 @@
                         0
                     ],
                     [
-                        27,
-                        4,
+                        901,
+                        0,
                         0,
                         0
                     ]
@@ -252,14 +250,14 @@
                     "Quiet": {
                         "is_scientific_meaningful": true,
                         "meaningful_reason": "Valid",
-                        "precision": 0.6823529411764706,
-                        "recall": 0.3741935483870968,
-                        "f1_score": 0.48333333333333334,
-                        "support": 155
+                        "precision": 0.9790025635050105,
+                        "recall": 0.9941311498686608,
+                        "f1_score": 0.9865088590651309,
+                        "support": 42257
                     },
                     "C-class": {
                         "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in this split's actual ground-truth label distribution.",
+                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
                         "precision": "not meaningful/undefined",
                         "recall": "not meaningful/undefined",
                         "f1_score": "not meaningful/undefined",
@@ -267,7 +265,7 @@
                     },
                     "M-class": {
                         "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
+                        "meaningful_reason": "Class was not present in this split's actual ground-truth label distribution.",
                         "precision": "not meaningful/undefined",
                         "recall": "not meaningful/undefined",
                         "f1_score": "not meaningful/undefined",
@@ -279,38 +277,38 @@
                         "precision": "not meaningful/undefined",
                         "recall": "not meaningful/undefined",
                         "f1_score": "not meaningful/undefined",
-                        "support": 31
+                        "support": 901
                     }
                 },
                 "sample_probabilities": [
                     [
-                        1.0,
-                        7.933902722906119e-33,
                         0.0,
+                        0.0,
+                        1.0,
                         0.0
                     ],
                     [
-                        1.0,
-                        2.264677668152057e-32,
                         0.0,
+                        0.0,
+                        1.0,
                         0.0
                     ],
                     [
-                        1.0,
-                        1.5794619765510298e-31,
                         0.0,
+                        0.0,
+                        1.0,
                         0.0
                     ],
                     [
-                        1.0,
-                        3.406820379227329e-30,
                         0.0,
+                        0.0,
+                        1.0,
                         0.0
                     ],
                     [
-                        1.0,
-                        9.477196222382142e-28,
                         0.0,
+                        0.0,
+                        1.0,
                         0.0
                     ]
                 ]
@@ -318,114 +316,10 @@
             "memory_safe_execution_status": "PASS"
         },
         "flattened": {
-            "training_time_seconds": 0.07692217826843262,
+            "training_time_seconds": 13.001251935958862,
             "model_configuration": "LogisticRegression(max_iter=1000, random_state=42)",
             "train_metrics": {
-                "num_samples": 906,
-                "classes_observed": [
-                    0,
-                    1
-                ],
-                "class_names_observed": [
-                    "Quiet",
-                    "C-class"
-                ],
-                "accuracy": 1.0,
-                "confusion_matrix": [
-                    [
-                        875,
-                        0,
-                        0,
-                        0
-                    ],
-                    [
-                        0,
-                        31,
-                        0,
-                        0
-                    ],
-                    [
-                        0,
-                        0,
-                        0,
-                        0
-                    ],
-                    [
-                        0,
-                        0,
-                        0,
-                        0
-                    ]
-                ],
-                "class_metrics": {
-                    "Quiet": {
-                        "is_scientific_meaningful": true,
-                        "meaningful_reason": "Valid",
-                        "precision": 1.0,
-                        "recall": 1.0,
-                        "f1_score": 1.0,
-                        "support": 875
-                    },
-                    "C-class": {
-                        "is_scientific_meaningful": true,
-                        "meaningful_reason": "Valid",
-                        "precision": 1.0,
-                        "recall": 1.0,
-                        "f1_score": 1.0,
-                        "support": 31
-                    },
-                    "M-class": {
-                        "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
-                        "precision": "not meaningful/undefined",
-                        "recall": "not meaningful/undefined",
-                        "f1_score": "not meaningful/undefined",
-                        "support": 0
-                    },
-                    "X-class": {
-                        "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
-                        "precision": "not meaningful/undefined",
-                        "recall": "not meaningful/undefined",
-                        "f1_score": "not meaningful/undefined",
-                        "support": 0
-                    }
-                },
-                "sample_probabilities": [
-                    [
-                        0.9999998900085758,
-                        1.0999142418334589e-07,
-                        0.0,
-                        0.0
-                    ],
-                    [
-                        0.9999999255747185,
-                        7.442528147306682e-08,
-                        0.0,
-                        0.0
-                    ],
-                    [
-                        0.9999998774864512,
-                        1.2251354874177953e-07,
-                        0.0,
-                        0.0
-                    ],
-                    [
-                        0.9999994842850666,
-                        5.157149333849876e-07,
-                        0.0,
-                        0.0
-                    ],
-                    [
-                        0.9999978678271152,
-                        2.1321728848369935e-06,
-                        0.0,
-                        0.0
-                    ]
-                ]
-            },
-            "validation_metrics": {
-                "num_samples": 258,
+                "num_samples": 36663,
                 "classes_observed": [
                     0,
                     2
@@ -434,11 +328,113 @@
                     "Quiet",
                     "M-class"
                 ],
-                "accuracy": 0.5891472868217055,
+                "accuracy": 0.99269017810872,
                 "confusion_matrix": [
                     [
-                        152,
-                        75,
+                        35791,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        268,
+                        0,
+                        604,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "class_metrics": {
+                    "Quiet": {
+                        "is_scientific_meaningful": true,
+                        "meaningful_reason": "Valid",
+                        "precision": 0.9925677362101001,
+                        "recall": 1.0,
+                        "f1_score": 0.9962700069589422,
+                        "support": 35791
+                    },
+                    "C-class": {
+                        "is_scientific_meaningful": false,
+                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
+                        "precision": "not meaningful/undefined",
+                        "recall": "not meaningful/undefined",
+                        "f1_score": "not meaningful/undefined",
+                        "support": 0
+                    },
+                    "M-class": {
+                        "is_scientific_meaningful": true,
+                        "meaningful_reason": "Valid",
+                        "precision": 1.0,
+                        "recall": 0.6926605504587156,
+                        "f1_score": 0.8184281842818428,
+                        "support": 872
+                    },
+                    "X-class": {
+                        "is_scientific_meaningful": false,
+                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
+                        "precision": "not meaningful/undefined",
+                        "recall": "not meaningful/undefined",
+                        "f1_score": "not meaningful/undefined",
+                        "support": 0
+                    }
+                },
+                "sample_probabilities": [
+                    [
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0
+                    ]
+                ]
+            },
+            "validation_metrics": {
+                "num_samples": 6441,
+                "classes_observed": [
+                    0
+                ],
+                "class_names_observed": [
+                    "Quiet"
+                ],
+                "accuracy": 1.0,
+                "confusion_matrix": [
+                    [
+                        6441,
+                        0,
                         0,
                         0
                     ],
@@ -449,7 +445,7 @@
                         0
                     ],
                     [
-                        31,
+                        0,
                         0,
                         0,
                         0
@@ -465,14 +461,14 @@
                     "Quiet": {
                         "is_scientific_meaningful": true,
                         "meaningful_reason": "Valid",
-                        "precision": 0.8306010928961749,
-                        "recall": 0.6696035242290749,
-                        "f1_score": 0.7414634146341463,
-                        "support": 227
+                        "precision": 1.0,
+                        "recall": 1.0,
+                        "f1_score": 1.0,
+                        "support": 6441
                     },
                     "C-class": {
                         "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in this split's actual ground-truth label distribution.",
+                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
                         "precision": "not meaningful/undefined",
                         "recall": "not meaningful/undefined",
                         "f1_score": "not meaningful/undefined",
@@ -480,11 +476,11 @@
                     },
                     "M-class": {
                         "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
+                        "meaningful_reason": "Class was not present in this split's actual ground-truth label distribution.",
                         "precision": "not meaningful/undefined",
                         "recall": "not meaningful/undefined",
                         "f1_score": "not meaningful/undefined",
-                        "support": 31
+                        "support": 0
                     },
                     "X-class": {
                         "is_scientific_meaningful": false,
@@ -498,38 +494,38 @@
                 "sample_probabilities": [
                     [
                         1.0,
-                        6.683252380126058e-26,
+                        0.0,
                         0.0,
                         0.0
                     ],
                     [
                         1.0,
-                        2.3368044042659665e-24,
+                        0.0,
                         0.0,
                         0.0
                     ],
                     [
                         1.0,
-                        1.3890502683288568e-24,
+                        0.0,
                         0.0,
                         0.0
                     ],
                     [
                         1.0,
-                        1.1469016883742056e-23,
+                        0.0,
                         0.0,
                         0.0
                     ],
                     [
                         1.0,
-                        4.645281888142679e-23,
+                        0.0,
                         0.0,
                         0.0
                     ]
                 ]
             },
             "test_metrics": {
-                "num_samples": 186,
+                "num_samples": 43158,
                 "classes_observed": [
                     0,
                     3
@@ -538,12 +534,12 @@
                     "Quiet",
                     "X-class"
                 ],
-                "accuracy": 0.21505376344086022,
+                "accuracy": 0.7443115992400019,
                 "confusion_matrix": [
                     [
-                        40,
-                        115,
+                        32123,
                         0,
+                        10134,
                         0
                     ],
                     [
@@ -559,9 +555,9 @@
                         0
                     ],
                     [
-                        3,
-                        28,
+                        531,
                         0,
+                        370,
                         0
                     ]
                 ],
@@ -569,14 +565,14 @@
                     "Quiet": {
                         "is_scientific_meaningful": true,
                         "meaningful_reason": "Valid",
-                        "precision": 0.9302325581395349,
-                        "recall": 0.25806451612903225,
-                        "f1_score": 0.40404040404040403,
-                        "support": 155
+                        "precision": 0.9837385925154651,
+                        "recall": 0.7601817450363253,
+                        "f1_score": 0.8576310555192161,
+                        "support": 42257
                     },
                     "C-class": {
                         "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in this split's actual ground-truth label distribution.",
+                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
                         "precision": "not meaningful/undefined",
                         "recall": "not meaningful/undefined",
                         "f1_score": "not meaningful/undefined",
@@ -584,7 +580,7 @@
                     },
                     "M-class": {
                         "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
+                        "meaningful_reason": "Class was not present in this split's actual ground-truth label distribution.",
                         "precision": "not meaningful/undefined",
                         "recall": "not meaningful/undefined",
                         "f1_score": "not meaningful/undefined",
@@ -596,38 +592,38 @@
                         "precision": "not meaningful/undefined",
                         "recall": "not meaningful/undefined",
                         "f1_score": "not meaningful/undefined",
-                        "support": 31
+                        "support": 901
                     }
                 },
                 "sample_probabilities": [
                     [
-                        0.9959316909550445,
-                        0.004068309044955477,
                         0.0,
+                        0.0,
+                        1.0,
                         0.0
                     ],
                     [
-                        0.9881583448409262,
-                        0.011841655159073757,
                         0.0,
+                        0.0,
+                        1.0,
                         0.0
                     ],
                     [
-                        0.7069505002795016,
-                        0.2930494997204984,
                         0.0,
+                        0.0,
+                        1.0,
                         0.0
                     ],
                     [
-                        0.01845932908140291,
-                        0.9815406709185971,
+                        0.0004356503486633301,
                         0.0,
+                        0.9995643496513367,
                         0.0
                     ],
                     [
-                        0.002101407244700648,
-                        0.9978985927552994,
+                        0.9998618364334106,
                         0.0,
+                        0.00013816592399962246,
                         0.0
                     ]
                 ]
@@ -637,114 +633,10 @@
     },
     "random_forest": {
         "statistical": {
-            "training_time_seconds": 0.1130228042602539,
+            "training_time_seconds": 7.180697679519653,
             "model_configuration": "RandomForestClassifier(max_depth=5, n_estimators=50, random_state=42)",
             "train_metrics": {
-                "num_samples": 906,
-                "classes_observed": [
-                    0,
-                    1
-                ],
-                "class_names_observed": [
-                    "Quiet",
-                    "C-class"
-                ],
-                "accuracy": 1.0,
-                "confusion_matrix": [
-                    [
-                        875,
-                        0,
-                        0,
-                        0
-                    ],
-                    [
-                        0,
-                        31,
-                        0,
-                        0
-                    ],
-                    [
-                        0,
-                        0,
-                        0,
-                        0
-                    ],
-                    [
-                        0,
-                        0,
-                        0,
-                        0
-                    ]
-                ],
-                "class_metrics": {
-                    "Quiet": {
-                        "is_scientific_meaningful": true,
-                        "meaningful_reason": "Valid",
-                        "precision": 1.0,
-                        "recall": 1.0,
-                        "f1_score": 1.0,
-                        "support": 875
-                    },
-                    "C-class": {
-                        "is_scientific_meaningful": true,
-                        "meaningful_reason": "Valid",
-                        "precision": 1.0,
-                        "recall": 1.0,
-                        "f1_score": 1.0,
-                        "support": 31
-                    },
-                    "M-class": {
-                        "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
-                        "precision": "not meaningful/undefined",
-                        "recall": "not meaningful/undefined",
-                        "f1_score": "not meaningful/undefined",
-                        "support": 0
-                    },
-                    "X-class": {
-                        "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
-                        "precision": "not meaningful/undefined",
-                        "recall": "not meaningful/undefined",
-                        "f1_score": "not meaningful/undefined",
-                        "support": 0
-                    }
-                },
-                "sample_probabilities": [
-                    [
-                        1.0,
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    [
-                        1.0,
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    [
-                        1.0,
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    [
-                        1.0,
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    [
-                        1.0,
-                        0.0,
-                        0.0,
-                        0.0
-                    ]
-                ]
-            },
-            "validation_metrics": {
-                "num_samples": 258,
+                "num_samples": 36663,
                 "classes_observed": [
                     0,
                     2
@@ -753,10 +645,10 @@
                     "Quiet",
                     "M-class"
                 ],
-                "accuracy": 0.8798449612403101,
+                "accuracy": 1.0,
                 "confusion_matrix": [
                     [
-                        227,
+                        35791,
                         0,
                         0,
                         0
@@ -768,7 +660,109 @@
                         0
                     ],
                     [
-                        31,
+                        0,
+                        0,
+                        872,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "class_metrics": {
+                    "Quiet": {
+                        "is_scientific_meaningful": true,
+                        "meaningful_reason": "Valid",
+                        "precision": 1.0,
+                        "recall": 1.0,
+                        "f1_score": 1.0,
+                        "support": 35791
+                    },
+                    "C-class": {
+                        "is_scientific_meaningful": false,
+                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
+                        "precision": "not meaningful/undefined",
+                        "recall": "not meaningful/undefined",
+                        "f1_score": "not meaningful/undefined",
+                        "support": 0
+                    },
+                    "M-class": {
+                        "is_scientific_meaningful": true,
+                        "meaningful_reason": "Valid",
+                        "precision": 1.0,
+                        "recall": 1.0,
+                        "f1_score": 1.0,
+                        "support": 872
+                    },
+                    "X-class": {
+                        "is_scientific_meaningful": false,
+                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
+                        "precision": "not meaningful/undefined",
+                        "recall": "not meaningful/undefined",
+                        "f1_score": "not meaningful/undefined",
+                        "support": 0
+                    }
+                },
+                "sample_probabilities": [
+                    [
+                        0.004223444072736908,
+                        0.0,
+                        0.9957765559272631,
+                        0.0
+                    ],
+                    [
+                        0.004223444072736908,
+                        0.0,
+                        0.9957765559272631,
+                        0.0
+                    ],
+                    [
+                        0.004223444072736908,
+                        0.0,
+                        0.9957765559272631,
+                        0.0
+                    ],
+                    [
+                        0.004223444072736908,
+                        0.0,
+                        0.9957765559272631,
+                        0.0
+                    ],
+                    [
+                        0.004223444072736908,
+                        0.0,
+                        0.9957765559272631,
+                        0.0
+                    ]
+                ]
+            },
+            "validation_metrics": {
+                "num_samples": 6441,
+                "classes_observed": [
+                    0
+                ],
+                "class_names_observed": [
+                    "Quiet"
+                ],
+                "accuracy": 1.0,
+                "confusion_matrix": [
+                    [
+                        6441,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
                         0,
                         0,
                         0
@@ -784,14 +778,14 @@
                     "Quiet": {
                         "is_scientific_meaningful": true,
                         "meaningful_reason": "Valid",
-                        "precision": 0.8798449612403101,
+                        "precision": 1.0,
                         "recall": 1.0,
-                        "f1_score": 0.9360824742268041,
-                        "support": 227
+                        "f1_score": 1.0,
+                        "support": 6441
                     },
                     "C-class": {
                         "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in this split's actual ground-truth label distribution.",
+                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
                         "precision": "not meaningful/undefined",
                         "recall": "not meaningful/undefined",
                         "f1_score": "not meaningful/undefined",
@@ -799,11 +793,11 @@
                     },
                     "M-class": {
                         "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
+                        "meaningful_reason": "Class was not present in this split's actual ground-truth label distribution.",
                         "precision": "not meaningful/undefined",
                         "recall": "not meaningful/undefined",
                         "f1_score": "not meaningful/undefined",
-                        "support": 31
+                        "support": 0
                     },
                     "X-class": {
                         "is_scientific_meaningful": false,
@@ -816,39 +810,39 @@
                 },
                 "sample_probabilities": [
                     [
-                        0.98,
-                        0.02,
+                        1.0,
+                        0.0,
                         0.0,
                         0.0
                     ],
                     [
-                        0.98,
-                        0.02,
+                        1.0,
+                        0.0,
                         0.0,
                         0.0
                     ],
                     [
-                        0.98,
-                        0.02,
+                        1.0,
+                        0.0,
                         0.0,
                         0.0
                     ],
                     [
-                        0.98,
-                        0.02,
+                        1.0,
+                        0.0,
                         0.0,
                         0.0
                     ],
                     [
-                        0.98,
-                        0.02,
+                        1.0,
+                        0.0,
                         0.0,
                         0.0
                     ]
                 ]
             },
             "test_metrics": {
-                "num_samples": 186,
+                "num_samples": 43158,
                 "classes_observed": [
                     0,
                     3
@@ -857,12 +851,12 @@
                     "Quiet",
                     "X-class"
                 ],
-                "accuracy": 0.8333333333333334,
+                "accuracy": 0.8537235275035915,
                 "confusion_matrix": [
                     [
-                        155,
+                        36845,
                         0,
-                        0,
+                        5412,
                         0
                     ],
                     [
@@ -878,7 +872,7 @@
                         0
                     ],
                     [
-                        31,
+                        901,
                         0,
                         0,
                         0
@@ -888,14 +882,14 @@
                     "Quiet": {
                         "is_scientific_meaningful": true,
                         "meaningful_reason": "Valid",
-                        "precision": 0.8333333333333334,
-                        "recall": 1.0,
-                        "f1_score": 0.9090909090909091,
-                        "support": 155
+                        "precision": 0.9761299210512372,
+                        "recall": 0.8719265447144852,
+                        "f1_score": 0.9210904591077834,
+                        "support": 42257
                     },
                     "C-class": {
                         "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in this split's actual ground-truth label distribution.",
+                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
                         "precision": "not meaningful/undefined",
                         "recall": "not meaningful/undefined",
                         "f1_score": "not meaningful/undefined",
@@ -903,7 +897,7 @@
                     },
                     "M-class": {
                         "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
+                        "meaningful_reason": "Class was not present in this split's actual ground-truth label distribution.",
                         "precision": "not meaningful/undefined",
                         "recall": "not meaningful/undefined",
                         "f1_score": "not meaningful/undefined",
@@ -915,38 +909,38 @@
                         "precision": "not meaningful/undefined",
                         "recall": "not meaningful/undefined",
                         "f1_score": "not meaningful/undefined",
-                        "support": 31
+                        "support": 901
                     }
                 },
                 "sample_probabilities": [
                     [
-                        0.98,
-                        0.02,
+                        0.20032581453634082,
                         0.0,
+                        0.7996741854636592,
                         0.0
                     ],
                     [
-                        0.98,
-                        0.02,
+                        0.18041392026321307,
                         0.0,
+                        0.819586079736787,
                         0.0
                     ],
                     [
-                        0.98,
-                        0.02,
+                        0.1442234440727369,
                         0.0,
+                        0.8557765559272632,
                         0.0
                     ],
                     [
-                        0.98,
-                        0.02,
+                        0.10422344407273691,
                         0.0,
+                        0.8957765559272631,
                         0.0
                     ],
                     [
-                        0.98,
-                        0.02,
+                        0.10413533834586466,
                         0.0,
+                        0.8958646616541354,
                         0.0
                     ]
                 ]
@@ -954,114 +948,10 @@
             "memory_safe_execution_status": "PASS"
         },
         "flattened": {
-            "training_time_seconds": 0.1577160358428955,
+            "training_time_seconds": 23.630863189697266,
             "model_configuration": "RandomForestClassifier(max_depth=5, n_estimators=50, random_state=42)",
             "train_metrics": {
-                "num_samples": 906,
-                "classes_observed": [
-                    0,
-                    1
-                ],
-                "class_names_observed": [
-                    "Quiet",
-                    "C-class"
-                ],
-                "accuracy": 1.0,
-                "confusion_matrix": [
-                    [
-                        875,
-                        0,
-                        0,
-                        0
-                    ],
-                    [
-                        0,
-                        31,
-                        0,
-                        0
-                    ],
-                    [
-                        0,
-                        0,
-                        0,
-                        0
-                    ],
-                    [
-                        0,
-                        0,
-                        0,
-                        0
-                    ]
-                ],
-                "class_metrics": {
-                    "Quiet": {
-                        "is_scientific_meaningful": true,
-                        "meaningful_reason": "Valid",
-                        "precision": 1.0,
-                        "recall": 1.0,
-                        "f1_score": 1.0,
-                        "support": 875
-                    },
-                    "C-class": {
-                        "is_scientific_meaningful": true,
-                        "meaningful_reason": "Valid",
-                        "precision": 1.0,
-                        "recall": 1.0,
-                        "f1_score": 1.0,
-                        "support": 31
-                    },
-                    "M-class": {
-                        "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
-                        "precision": "not meaningful/undefined",
-                        "recall": "not meaningful/undefined",
-                        "f1_score": "not meaningful/undefined",
-                        "support": 0
-                    },
-                    "X-class": {
-                        "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
-                        "precision": "not meaningful/undefined",
-                        "recall": "not meaningful/undefined",
-                        "f1_score": "not meaningful/undefined",
-                        "support": 0
-                    }
-                },
-                "sample_probabilities": [
-                    [
-                        1.0,
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    [
-                        1.0,
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    [
-                        1.0,
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    [
-                        1.0,
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    [
-                        1.0,
-                        0.0,
-                        0.0,
-                        0.0
-                    ]
-                ]
-            },
-            "validation_metrics": {
-                "num_samples": 258,
+                "num_samples": 36663,
                 "classes_observed": [
                     0,
                     2
@@ -1070,10 +960,10 @@
                     "Quiet",
                     "M-class"
                 ],
-                "accuracy": 0.8798449612403101,
+                "accuracy": 1.0,
                 "confusion_matrix": [
                     [
-                        227,
+                        35791,
                         0,
                         0,
                         0
@@ -1085,7 +975,109 @@
                         0
                     ],
                     [
-                        31,
+                        0,
+                        0,
+                        872,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "class_metrics": {
+                    "Quiet": {
+                        "is_scientific_meaningful": true,
+                        "meaningful_reason": "Valid",
+                        "precision": 1.0,
+                        "recall": 1.0,
+                        "f1_score": 1.0,
+                        "support": 35791
+                    },
+                    "C-class": {
+                        "is_scientific_meaningful": false,
+                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
+                        "precision": "not meaningful/undefined",
+                        "recall": "not meaningful/undefined",
+                        "f1_score": "not meaningful/undefined",
+                        "support": 0
+                    },
+                    "M-class": {
+                        "is_scientific_meaningful": true,
+                        "meaningful_reason": "Valid",
+                        "precision": 1.0,
+                        "recall": 1.0,
+                        "f1_score": 1.0,
+                        "support": 872
+                    },
+                    "X-class": {
+                        "is_scientific_meaningful": false,
+                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
+                        "precision": "not meaningful/undefined",
+                        "recall": "not meaningful/undefined",
+                        "f1_score": "not meaningful/undefined",
+                        "support": 0
+                    }
+                },
+                "sample_probabilities": [
+                    [
+                        0.08,
+                        0.0,
+                        0.92,
+                        0.0
+                    ],
+                    [
+                        0.02,
+                        0.0,
+                        0.98,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    [
+                        0.02,
+                        0.0,
+                        0.98,
+                        0.0
+                    ]
+                ]
+            },
+            "validation_metrics": {
+                "num_samples": 6441,
+                "classes_observed": [
+                    0
+                ],
+                "class_names_observed": [
+                    "Quiet"
+                ],
+                "accuracy": 1.0,
+                "confusion_matrix": [
+                    [
+                        6441,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
                         0,
                         0,
                         0
@@ -1101,14 +1093,14 @@
                     "Quiet": {
                         "is_scientific_meaningful": true,
                         "meaningful_reason": "Valid",
-                        "precision": 0.8798449612403101,
+                        "precision": 1.0,
                         "recall": 1.0,
-                        "f1_score": 0.9360824742268041,
-                        "support": 227
+                        "f1_score": 1.0,
+                        "support": 6441
                     },
                     "C-class": {
                         "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in this split's actual ground-truth label distribution.",
+                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
                         "precision": "not meaningful/undefined",
                         "recall": "not meaningful/undefined",
                         "f1_score": "not meaningful/undefined",
@@ -1116,11 +1108,11 @@
                     },
                     "M-class": {
                         "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
+                        "meaningful_reason": "Class was not present in this split's actual ground-truth label distribution.",
                         "precision": "not meaningful/undefined",
                         "recall": "not meaningful/undefined",
                         "f1_score": "not meaningful/undefined",
-                        "support": 31
+                        "support": 0
                     },
                     "X-class": {
                         "is_scientific_meaningful": false,
@@ -1133,39 +1125,39 @@
                 },
                 "sample_probabilities": [
                     [
-                        0.52,
-                        0.48,
+                        1.0,
+                        0.0,
                         0.0,
                         0.0
                     ],
                     [
-                        0.54,
-                        0.46,
+                        1.0,
+                        0.0,
                         0.0,
                         0.0
                     ],
                     [
-                        0.58,
-                        0.42,
+                        1.0,
+                        0.0,
                         0.0,
                         0.0
                     ],
                     [
-                        0.6,
-                        0.4,
+                        1.0,
+                        0.0,
                         0.0,
                         0.0
                     ],
                     [
-                        0.6,
-                        0.4,
+                        1.0,
+                        0.0,
                         0.0,
                         0.0
                     ]
                 ]
             },
             "test_metrics": {
-                "num_samples": 186,
+                "num_samples": 43158,
                 "classes_observed": [
                     0,
                     3
@@ -1174,12 +1166,12 @@
                     "Quiet",
                     "X-class"
                 ],
-                "accuracy": 0.8333333333333334,
+                "accuracy": 0.882130775290792,
                 "confusion_matrix": [
                     [
-                        155,
+                        38071,
                         0,
-                        0,
+                        4186,
                         0
                     ],
                     [
@@ -1195,7 +1187,7 @@
                         0
                     ],
                     [
-                        31,
+                        901,
                         0,
                         0,
                         0
@@ -1205,14 +1197,14 @@
                     "Quiet": {
                         "is_scientific_meaningful": true,
                         "meaningful_reason": "Valid",
-                        "precision": 0.8333333333333334,
-                        "recall": 1.0,
-                        "f1_score": 0.9090909090909091,
-                        "support": 155
+                        "precision": 0.9768808375243765,
+                        "recall": 0.9009394893153797,
+                        "f1_score": 0.9373745829691367,
+                        "support": 42257
                     },
                     "C-class": {
                         "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in this split's actual ground-truth label distribution.",
+                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
                         "precision": "not meaningful/undefined",
                         "recall": "not meaningful/undefined",
                         "f1_score": "not meaningful/undefined",
@@ -1220,7 +1212,7 @@
                     },
                     "M-class": {
                         "is_scientific_meaningful": false,
-                        "meaningful_reason": "Class was not present in training data; model cannot predict it.",
+                        "meaningful_reason": "Class was not present in this split's actual ground-truth label distribution.",
                         "precision": "not meaningful/undefined",
                         "recall": "not meaningful/undefined",
                         "f1_score": "not meaningful/undefined",
@@ -1232,38 +1224,38 @@
                         "precision": "not meaningful/undefined",
                         "recall": "not meaningful/undefined",
                         "f1_score": "not meaningful/undefined",
-                        "support": 31
+                        "support": 901
                     }
                 },
                 "sample_probabilities": [
                     [
-                        0.6,
-                        0.4,
+                        0.34,
                         0.0,
+                        0.66,
                         0.0
                     ],
                     [
-                        0.6,
-                        0.4,
+                        0.34,
                         0.0,
+                        0.66,
                         0.0
                     ],
                     [
-                        0.6,
-                        0.4,
+                        0.38,
                         0.0,
+                        0.62,
                         0.0
                     ],
                     [
-                        0.6,
-                        0.4,
+                        0.3,
                         0.0,
+                        0.7,
                         0.0
                     ],
                     [
-                        0.6,
-                        0.4,
+                        0.34,
                         0.0,
+                        0.66,
                         0.0
                     ]
                 ]

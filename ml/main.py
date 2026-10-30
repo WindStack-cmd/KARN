@@ -1,17 +1,46 @@
 """Artifact-backed API for the frozen KARN temporal flare experiment."""
 from __future__ import annotations
 
+import os
 import json
+import logging
 from threading import Lock
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
 import torch
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Depends, Header, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import APIKeyHeader
+
+# Environment configuration
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+API_KEY = os.getenv("API_KEY", "").strip()
+
+# Structured logger (JSON format)
+logger = logging.getLogger("karn")
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('{"time":"%(asctime)s","level":"%(levelname)s","msg":"%(message)s"}')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+
+# Optional API-key security – only enforced when a key is set.
+api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
+
+def verify_api_key(key: Optional[str] = Depends(api_key_header)):
+    if API_KEY:
+        if not key:
+            logger.warning("Missing API key on protected endpoint")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="API key required")
+        if key != API_KEY:
+            logger.warning("Invalid API key supplied")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid API key")
+    return True
 
 try:
     from .models_v3 import KarnMultiTaskEngine
@@ -23,14 +52,17 @@ except ImportError:  # Supports `uvicorn main:app` from the ml directory.
 ROOT = Path(__file__).resolve().parents[1]
 PROCESSED, WINDOWS = ROOT / "data" / "processed", ROOT / "data" / "processed" / "training_windows"
 EVAL, DIAGNOSTICS = ROOT / "ml" / "eval_results", ROOT / "ml" / "eval_results" / "diagnostics"
-CHECKPOINT = ROOT / "ml" / "checkpoints" / "karn_binary_flare_temporal_experiment.pt"
+CHECKPOINT_CANDIDATES = (
+    ROOT / "ml" / "checkpoints" / "karn_binary_flare_temporal_experiment.pt",
+    ROOT / "ml" / "checkpoints" / "karn_binary_flare_current.pt",
+)
 FEATURES_PATH, TIMELINE_PATH, LABELS_PATH = PROCESSED / "aditya_features.csv", PROCESSED / "aditya_synced_timeline.csv", PROCESSED / "aditya_labels.csv"
 REPORT_PATH, METRICS_PATH = WINDOWS / "binary_validation_report.json", EVAL / "temporal_binary_eval_metrics.json"
 PREDICTIONS_PATH, SCALER_PATH = EVAL / "temporal_binary_eval_predictions.npz", WINDOWS / "scaler.npz"
 NOWCASTING = PROCESSED / "nowcasting"
 
 app = FastAPI(title="KARN Research API", description="Artifact-backed interface for the frozen KARN binary flare experiment.", version="2.0.0")
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["GET", "POST"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_methods=["GET", "POST"], allow_headers=["*"])
 REPLAY_LOCK = Lock()
 
 
@@ -123,11 +155,15 @@ def telemetry_frame() -> pd.DataFrame:
         raise FileNotFoundError("processed telemetry artifacts")
     features, timeline, labels = (pd.read_csv(path) for path in (FEATURES_PATH, TIMELINE_PATH, LABELS_PATH))
     for frame in (features, timeline, labels):
-        if "timestamp" in frame.columns: frame["timestamp"] = pd.to_datetime(frame["timestamp"], errors="coerce")
+        if "timestamp" in frame.columns:
+            # The labels include an explicit UTC offset while the other
+            # processed artifacts use naive UTC strings. Normalize all sources
+            # to the same naive UTC representation before merging.
+            timestamps = pd.to_datetime(frame["timestamp"], errors="coerce", utc=True)
+            frame["timestamp"] = timestamps.dt.tz_localize(None)
     frame = features.merge(timeline[["timestamp", "partition_id"]], on="timestamp", how="left")
     frame = frame.rename(columns={"partition_id": "partition"})
     frame = frame.merge(labels, on="timestamp", how="left", suffixes=("", "_label"))
-    token_to_class = {"quiet": 0, "c": 1, "m": 2, "x": 3}
     # flare_class_token is already the numeric class rank (0=quiet, 1=C, 2=M, 3=X)
     # from create_labels.py — convert directly instead of round-tripping through
     # string keys, which previously mismatched ("3" never matched "x") and made
@@ -139,9 +175,13 @@ def telemetry_frame() -> pd.DataFrame:
 
 @lru_cache(maxsize=1)
 def frozen_model() -> KarnMultiTaskEngine:
-    if not CHECKPOINT.exists(): raise FileNotFoundError(CHECKPOINT)
-    checkpoint = torch.load(CHECKPOINT, map_location="cpu", weights_only=True)
+    checkpoint_path = next((path for path in CHECKPOINT_CANDIDATES if path.exists()), None)
+    if checkpoint_path is None:
+        raise FileNotFoundError("No binary model checkpoint found: " + ", ".join(path.name for path in CHECKPOINT_CANDIDATES))
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
     state = checkpoint.get("model_state_dict", checkpoint) if isinstance(checkpoint, dict) else checkpoint
+    if not isinstance(checkpoint, dict) or checkpoint.get("input_dim") != 21 or checkpoint.get("num_classes") != 2:
+        raise ValueError(f"Checkpoint {checkpoint_path.name} is not a compatible binary 21-feature model")
     model = KarnMultiTaskEngine(input_dim=21, hidden_dim=64, num_classes=2)
     model.load_state_dict(state, strict=True)
     model.eval()
@@ -158,9 +198,11 @@ def root() -> dict[str, Any]: return {"name": "KARN Research API", "api_prefix":
 
 @app.get("/api/health")
 def health() -> dict[str, Any]:
-    required = [FEATURES_PATH, TIMELINE_PATH, LABELS_PATH, REPORT_PATH, METRICS_PATH, CHECKPOINT, SCALER_PATH]
+    required = [FEATURES_PATH, TIMELINE_PATH, LABELS_PATH, REPORT_PATH, METRICS_PATH, SCALER_PATH]
+    checkpoint_available = any(path.exists() for path in CHECKPOINT_CANDIDATES)
     nowcast_files = [NOWCASTING / name for name in ("solexs_nowcast_catalogue.csv", "helios_nowcast_catalogue.csv", "master_flare_catalogue.csv", "nowcasting_summary.json")]
-    return {"status": "ok" if all(path.exists() for path in required) else "degraded", "artifacts_available": all(path.exists() for path in required), "nowcasting_available": all(path.exists() for path in nowcast_files), "solexs_catalogue_available": nowcast_files[0].exists(), "helios_catalogue_available": nowcast_files[1].exists(), "master_catalogue_available": nowcast_files[2].exists(), "catalogue_event_count": nowcasting_summary().get("counts", {}).get("master", "Unavailable") if nowcast_files[3].exists() else "Unavailable", **source_status()}
+    artifacts_available = all(path.exists() for path in required) and checkpoint_available
+    return {"status": "ok" if artifacts_available else "degraded", "artifacts_available": artifacts_available, "checkpoint_available": checkpoint_available, "nowcasting_available": all(path.exists() for path in nowcast_files), "solexs_catalogue_available": nowcast_files[0].exists(), "helios_catalogue_available": nowcast_files[1].exists(), "master_catalogue_available": nowcast_files[2].exists(), "catalogue_event_count": nowcasting_summary().get("counts", {}).get("master", "Unavailable") if nowcast_files[3].exists() else "Unavailable", **source_status()}
 
 
 @app.get("/api/status")
@@ -201,7 +243,8 @@ def latest_telemetry() -> dict[str, Any]:
 def model_status() -> dict[str, Any]:
     try:
         model = frozen_model()
-        return {**source_status(), "checkpoint": CHECKPOINT.name, "checkpoint_available": True, "classifier_output_classes": model.classifier_head.out_features, "inference_available": SCALER_PATH.exists()}
+        checkpoint = next(path for path in CHECKPOINT_CANDIDATES if path.exists())
+        return {**source_status(), "checkpoint": checkpoint.name, "checkpoint_available": True, "classifier_output_classes": model.classifier_head.out_features, "inference_available": SCALER_PATH.exists()}
     except Exception as exc: raise unavailable(f"frozen checkpoint could not be loaded: {exc}") from exc
 
 
